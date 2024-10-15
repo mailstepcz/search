@@ -86,9 +86,11 @@ func (e Match) Map(fl ExprFlavour) (interface{}, error) {
 
 // Interval is an AST node for ranges.
 type Interval[T any] struct {
-	Ident string
-	From  *T
-	To    *T
+	Ident         string
+	From          *T
+	FromInclusive bool
+	To            *T
+	ToInclusive   bool
 }
 
 // Idents returns all the identifiers in the expression.
@@ -102,20 +104,36 @@ func (e Interval[T]) Map(fl ExprFlavour) (interface{}, error) {
 	case DocDB:
 		conds := make([]KVPair, 0, 2)
 		if e.From != nil {
-			conds = append(conds, KVPair{"$gte", *e.From})
+			op := "$gte"
+			if !e.FromInclusive {
+				op = "$gt"
+			}
+			conds = append(conds, KVPair{op, *e.From})
 		}
 		if e.To != nil {
-			conds = append(conds, KVPair{"$lte", *e.To})
+			op := "$lte"
+			if !e.ToInclusive {
+				op = "$lt"
+			}
+			conds = append(conds, KVPair{op, *e.To})
 		}
 		return Map{Pairs: []KVPair{
 			{e.Ident, Map{Pairs: conds}}}}, nil
 	case OpenSearch:
 		conds := make([]KVPair, 0, 2)
 		if e.From != nil {
-			conds = append(conds, KVPair{"gte", *e.From})
+			op := "gte"
+			if !e.FromInclusive {
+				op = "gt"
+			}
+			conds = append(conds, KVPair{op, *e.From})
 		}
 		if e.To != nil {
-			conds = append(conds, KVPair{"lte", *e.To})
+			op := "lte"
+			if !e.ToInclusive {
+				op = "lt"
+			}
+			conds = append(conds, KVPair{op, *e.To})
 		}
 		return Map{Pairs: []KVPair{
 			{"range", Map{Pairs: []KVPair{

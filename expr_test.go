@@ -44,3 +44,23 @@ func TestOpensearchAnd(t *testing.T) {
 		{[]KVPair{{"match", Map{[]KVPair{{"b", "5678"}}}}}},
 	}, m)
 }
+
+func TestOpensearchIntervalGtLt(t *testing.T) {
+	req := require.New(t)
+
+	from, to := 10, 15
+	e := Interval[int]{Ident: "a", From: &from, FromInclusive: false, To: &to, ToInclusive: false}
+	m, err := e.Map(OpenSearch)
+	req.NoError(err)
+	req.Equal(Map{[]KVPair{{"range", Map{[]KVPair{{"a", Map{Pairs: []KVPair{{Key: "gt", Value: from}, {Key: "lt", Value: to}}}}}}}}}, m)
+}
+
+func TestOpensearchIntervalGteLte(t *testing.T) {
+	req := require.New(t)
+
+	from, to := 10, 15
+	e := Interval[int]{Ident: "a", From: &from, FromInclusive: true, To: &to, ToInclusive: true}
+	m, err := e.Map(OpenSearch)
+	req.NoError(err)
+	req.Equal(Map{[]KVPair{{"range", Map{[]KVPair{{"a", Map{Pairs: []KVPair{{Key: "gte", Value: from}, {Key: "lte", Value: to}}}}}}}}}, m)
+}
