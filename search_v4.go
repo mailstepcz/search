@@ -206,6 +206,7 @@ type IDedDocument[T any] struct {
 
 // Convertor provides a [Convert] method to convert the document into a domain object.
 type Convertor[T any] interface {
+	ID() string
 	Convert() (*T, error)
 }
 
