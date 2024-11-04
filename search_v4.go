@@ -210,7 +210,7 @@ type IDedDocument[T any] struct {
 	Document *T
 }
 
-// Convert converts a document into a domain object.
+// Convert converts a document conforming to [Convertor] into a domain object.
 func Convert[T any, D any, PD interface {
 	pointer.Pointer[D]
 	Convertor[T]
