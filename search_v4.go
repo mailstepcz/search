@@ -204,6 +204,16 @@ type IDedDocument[T any] struct {
 	Document *T
 }
 
+// Convertor provides a [Convert] method to convert the document into a domain object.
+type Convertor[T any] interface {
+	Convert() (*T, error)
+}
+
+// Convert converts a document into a domain object.
+func Convert[T any](doc Convertor[T]) (*T, error) {
+	return doc.Convert()
+}
+
 type searchQuery struct {
 	Query searchBool               `json:"query"`
 	Sort  []map[string]interface{} `json:"sort,omitempty"`
