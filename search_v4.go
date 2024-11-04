@@ -10,6 +10,7 @@ import (
 	"io"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/mailstepcz/pointer"
 	"github.com/mailstepcz/serr"
 	"github.com/opensearch-project/opensearch-go/v4"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
@@ -198,21 +199,23 @@ type Pagination struct {
 	Size int
 }
 
+// Convertor provides a [Convert] method to convert the document into a domain object.
+type Convertor[T any] interface {
+	Convert(string) (*T, error)
+}
+
 // IDedDocument is an IDed document.
 type IDedDocument[T any] struct {
 	ID       string
 	Document *T
 }
 
-// Convertor provides a [Convert] method to convert the document into a domain object.
-type Convertor[T any] interface {
-	ID() string
-	Convert() (*T, error)
-}
-
 // Convert converts a document into a domain object.
-func Convert[T any](doc Convertor[T]) (*T, error) {
-	return doc.Convert()
+func Convert[T any, D any, PD interface {
+	pointer.Pointer[D]
+	Convertor[T]
+}](doc IDedDocument[D]) (*T, error) {
+	return PD(doc.Document).Convert(doc.ID)
 }
 
 type searchQuery struct {
