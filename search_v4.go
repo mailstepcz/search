@@ -68,6 +68,16 @@ func Index[T any](ctx context.Context, cl *opensearch.Client, index, id string, 
 
 // Update indexes a document.
 func Update[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T) error {
+	return updateDoc(ctx, cl, index, id, doc, nil)
+}
+
+// UpdateWithRefresh updates a document with refresh = true parameter.
+// https://opensearch.org/docs/latest/api-reference/document-apis/update-document/#query-parameters
+func UpdateWithRefresh[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T) error {
+	return updateDoc(ctx, cl, index, id, doc, &opensearchapi.UpdateParams{Refresh: "true"})
+}
+
+func updateDoc[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T, params *opensearchapi.UpdateParams) error {
 	b, err := json.Marshal(doc)
 	if err != nil {
 		return err
@@ -77,6 +87,11 @@ func Update[T any](ctx context.Context, cl *opensearch.Client, index, id string,
 		DocumentID: id,
 		Body:       bytes.NewReader(b),
 	}
+
+	if params != nil {
+		req.Params = *params
+	}
+
 	resp, err := cl.Do(ctx, req, nil)
 	if err != nil {
 		return err
