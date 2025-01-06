@@ -47,6 +47,16 @@ func NewAWSClient(ctx context.Context, url string, awsCfg aws.Config) (*opensear
 
 // Index indexes a document.
 func Index[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T) error {
+	return indexDoc(ctx, cl, index, id, doc, nil)
+}
+
+// IndexWithRefresh indexes a document with refresh = true parameter.
+// https://opensearch.org/docs/latest/api-reference/document-apis/index-document/#query-parameters
+func IndexWithRefresh[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T) error {
+	return indexDoc(ctx, cl, index, id, doc, &opensearchapi.IndexParams{Refresh: "true"})
+}
+
+func indexDoc[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T, params *opensearchapi.IndexParams) error {
 	b, err := json.Marshal(doc)
 	if err != nil {
 		return err
@@ -56,6 +66,11 @@ func Index[T any](ctx context.Context, cl *opensearch.Client, index, id string, 
 		DocumentID: id,
 		Body:       bytes.NewReader(b),
 	}
+
+	if params != nil {
+		req.Params = *params
+	}
+
 	resp, err := cl.Do(ctx, req, nil)
 	if err != nil {
 		return err
@@ -104,10 +119,25 @@ func updateDoc[T any](ctx context.Context, cl *opensearch.Client, index, id stri
 
 // Delete deletes a document.
 func Delete(ctx context.Context, cl *opensearch.Client, index, id string) error {
+	return deleteDoc(ctx, cl, index, id, nil)
+}
+
+// DeleteWithRefresh deletes a document with refresh = true parameter.
+// https://opensearch.org/docs/latest/api-reference/document-apis/delete-document/#query-parameters
+func DeleteWithRefresh(ctx context.Context, cl *opensearch.Client, index, id string) error {
+	return deleteDoc(ctx, cl, index, id, &opensearchapi.DocumentDeleteParams{Refresh: "true"})
+}
+
+func deleteDoc(ctx context.Context, cl *opensearch.Client, index, id string, params *opensearchapi.DocumentDeleteParams) error {
 	req := opensearchapi.DocumentDeleteReq{
 		Index:      index,
 		DocumentID: id,
 	}
+
+	if params != nil {
+		req.Params = *params
+	}
+
 	resp, err := cl.Do(ctx, req, nil)
 	if err != nil {
 		return err
