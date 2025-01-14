@@ -41,7 +41,8 @@ func Test_buildBulkBody(t *testing.T) {
 		want: []byte(`{"index":{"_id":"ID-1","_index":"test-index"}}
 {"id":"1","name":"Doc 1"}
 {"index":{"_id":"ID-2","_index":"test-index"}}
-{"id":"2","name":"Doc 2"}`),
+{"id":"2","name":"Doc 2"}
+`),
 	}, {
 		name: "index and delete",
 		ops: []BulkOperation[doc]{
@@ -61,7 +62,8 @@ func Test_buildBulkBody(t *testing.T) {
 		},
 		want: []byte(`{"index":{"_id":"ID-1","_index":"test-index"}}
 {"id":"1","name":"Doc 1"}
-{"delete":{"_id":"ID-2","_index":"test-index"}}`),
+{"delete":{"_id":"ID-2","_index":"test-index"}}
+`),
 	}, {
 		name: "index",
 		ops: []BulkOperation[doc]{
@@ -76,7 +78,8 @@ func Test_buildBulkBody(t *testing.T) {
 			},
 		},
 		want: []byte(`{"index":{"_id":"ID-1","_index":"test-index"}}
-{"id":"1","name":"Doc 1"}`),
+{"id":"1","name":"Doc 1"}
+`),
 	}, {
 		name: "delete",
 		ops: []BulkOperation[doc]{
@@ -86,7 +89,8 @@ func Test_buildBulkBody(t *testing.T) {
 				Index:         "test-index",
 			},
 		},
-		want: []byte(`{"delete":{"_id":"ID-2","_index":"test-index"}}`),
+		want: []byte(`{"delete":{"_id":"ID-2","_index":"test-index"}}
+`),
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

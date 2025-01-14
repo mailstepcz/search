@@ -119,5 +119,5 @@ func buildBulkBody[T any](ops []BulkOperation[T]) ([]byte, error) {
 		}
 	}
 
-	return bytes.TrimSuffix(buffer.Bytes(), []byte("\n")), nil
+	return buffer.Bytes(), nil
 }
