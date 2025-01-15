@@ -32,25 +32,24 @@ type BulkOperation[T any] struct {
 }
 
 // Bulk sends a bulk request with the specified ops.
-func Bulk[T any](ctx context.Context, cl *opensearch.Client, index string, docs []BulkOperation[T]) error {
-	return bulk(ctx, cl, index, docs, nil)
+func Bulk[T any](ctx context.Context, cl *opensearch.Client, docs []BulkOperation[T]) error {
+	return bulk(ctx, cl, docs, nil)
 }
 
 // BulkWithRefresh sends a bulk request with the specified ops and refresh = true parameter.
 // https://opensearch.org/docs/latest/api-reference/document-apis/bulk/#query-parameters
-func BulkWithRefresh[T any](ctx context.Context, cl *opensearch.Client, index string, docs []BulkOperation[T]) error {
-	return bulk(ctx, cl, index, docs, &opensearchapi.BulkParams{Refresh: "true"})
+func BulkWithRefresh[T any](ctx context.Context, cl *opensearch.Client, docs []BulkOperation[T]) error {
+	return bulk(ctx, cl, docs, &opensearchapi.BulkParams{Refresh: "true"})
 }
 
-func bulk[T any](ctx context.Context, cl *opensearch.Client, index string, ops []BulkOperation[T], params *opensearchapi.BulkParams) error {
+func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation[T], params *opensearchapi.BulkParams) error {
 	b, err := buildBulkBody(ops)
 	if err != nil {
 		return err
 	}
 
 	req := opensearchapi.BulkReq{
-		Index: index,
-		Body:  bytes.NewReader(b),
+		Body: bytes.NewReader(b),
 	}
 
 	if params != nil {
