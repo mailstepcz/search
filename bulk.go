@@ -79,6 +79,8 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, index string, ops [
 				errors.Join(errs, serr.Wrap(
 					"",
 					ErrBulkItemError,
+					serr.String("id", item.ID),
+					serr.String("index", item.Index),
 					serr.String("type", item.Error.Type),
 					serr.String("reason", item.Error.Reason),
 					serr.String("causeType", item.Error.Cause.Type),
