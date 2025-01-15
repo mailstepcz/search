@@ -15,8 +15,11 @@ var (
 	ErrBulkItemError = errors.New("bulk item error")
 )
 
+// BulkOperationType represents the bulk operation type.
+// https://opensearch.org/docs/latest/api-reference/document-apis/bulk/#request-body
 type BulkOperationType string
 
+// Bulk operations.
 const (
 	OpCreate BulkOperationType = "create"
 	OpDelete BulkOperationType = "delete"
@@ -24,6 +27,7 @@ const (
 	OpUpdate BulkOperationType = "update"
 )
 
+// BulkOperation for OpenSearch requests.
 type BulkOperation[T any] struct {
 	OperationType BulkOperationType `json:"-"`
 	ID            string            `json:"id"`

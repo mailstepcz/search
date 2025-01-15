@@ -13,7 +13,7 @@ func Test_buildBulkBody(t *testing.T) {
 	}
 
 	type doc struct {
-		Id   string `json:"id"`
+		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
 
@@ -25,7 +25,7 @@ func Test_buildBulkBody(t *testing.T) {
 				ID:            "ID-1",
 				Index:         "test-index",
 				Doc: &doc{
-					Id:   "1",
+					ID:   "1",
 					Name: "Doc 1",
 				},
 			}, {
@@ -33,7 +33,7 @@ func Test_buildBulkBody(t *testing.T) {
 				ID:            "ID-2",
 				Index:         "test-index",
 				Doc: &doc{
-					Id:   "2",
+					ID:   "2",
 					Name: "Doc 2",
 				},
 			},
@@ -51,7 +51,7 @@ func Test_buildBulkBody(t *testing.T) {
 				ID:            "ID-1",
 				Index:         "test-index",
 				Doc: &doc{
-					Id:   "1",
+					ID:   "1",
 					Name: "Doc 1",
 				},
 			}, {
@@ -72,7 +72,7 @@ func Test_buildBulkBody(t *testing.T) {
 				ID:            "ID-1",
 				Index:         "test-index",
 				Doc: &doc{
-					Id:   "1",
+					ID:   "1",
 					Name: "Doc 1",
 				},
 			},
