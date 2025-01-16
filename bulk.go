@@ -71,7 +71,7 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation
 		return osError(resp)
 	}
 
-	if bulkResponse.Errors {
+	if bulkResponse.Errors && bulkResponse.Items != nil {
 		var errs error
 		for _, items := range bulkResponse.Items {
 			for _, item := range items {
@@ -79,7 +79,7 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation
 					continue
 				}
 
-				errors.Join(errs, serr.Wrap(
+				errs = errors.Join(errs, serr.Wrap(
 					"",
 					ErrBulkItemError,
 					serr.String("id", item.ID),
