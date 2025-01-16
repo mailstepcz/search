@@ -1,6 +1,7 @@
 package search
 
 import (
+	"bytes"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -95,10 +96,11 @@ func Test_buildBulkBody(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
-			got, err := buildBulkBody(tt.ops)
+			var b bytes.Buffer
+			err := buildBulkBody(tt.ops, &b)
 
 			req.NoError(err)
-			req.Equal(tt.want, got)
+			req.Equal(tt.want, b.Bytes())
 		})
 	}
 }
