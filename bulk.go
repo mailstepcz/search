@@ -8,6 +8,7 @@ import (
 	"github.com/mailstepcz/serr"
 	"github.com/opensearch-project/opensearch-go/v4"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
+	"io"
 )
 
 var (
@@ -47,13 +48,13 @@ func BulkWithRefresh[T any](ctx context.Context, cl *opensearch.Client, docs []B
 }
 
 func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation[T], params *opensearchapi.BulkParams) error {
-	b, err := buildBulkBody(ops)
-	if err != nil {
+	var buf bytes.Buffer
+	if err := buildBulkBody(ops, &buf); err != nil {
 		return err
 	}
 
 	req := opensearchapi.BulkReq{
-		Body: bytes.NewReader(b),
+		Body: &buf,
 	}
 
 	if params != nil {
@@ -97,32 +98,24 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation
 	return nil
 }
 
-func buildBulkBody[T any](ops []BulkOperation[T]) ([]byte, error) {
-	var buffer bytes.Buffer
-
+func buildBulkBody[T any](ops []BulkOperation[T], w io.Writer) error {
+	encoder := json.NewEncoder(w)
 	for _, op := range ops {
-		metaBytes, err := json.Marshal(map[string]interface{}{
+		if err := encoder.Encode(map[string]interface{}{
 			string(op.OperationType): map[string]string{
 				"_index": op.Index,
 				"_id":    op.ID,
 			},
-		})
-		if err != nil {
-			return nil, serr.Wrap("marshalling meta JSON", err, serr.String("index", op.Index), serr.String("id", op.ID))
+		}); err != nil {
+			return serr.Wrap("marshalling meta JSON", err, serr.String("index", op.Index), serr.String("id", op.ID))
 		}
-		buffer.Write(metaBytes)
-		buffer.WriteByte('\n')
 
 		if op.OperationType != OpDelete && op.Doc != nil {
-			docBytes, err := json.Marshal(op.Doc)
-			if err != nil {
-				return nil, serr.Wrap("marshalling document JSON", err, serr.String("operationType", string(op.OperationType)))
+			if err := encoder.Encode(op.Doc); err != nil {
+				return serr.Wrap("marshalling document JSON", err, serr.String("operationType", string(op.OperationType)))
 			}
-
-			buffer.Write(docBytes)
-			buffer.WriteByte('\n')
 		}
 	}
 
-	return buffer.Bytes(), nil
+	return nil
 }
