@@ -148,6 +148,27 @@ func deleteDoc(ctx context.Context, cl *opensearch.Client, index, id string, par
 	return nil
 }
 
+// Get gets a document.
+func Get[T any](ctx context.Context, cl *opensearch.Client, index, id string) (*T, error) {
+	req := opensearchapi.DocumentGetReq{
+		Index:      index,
+		DocumentID: id,
+	}
+	var sresp opensearchapi.DocumentGetResp
+	resp, err := cl.Do(ctx, req, &sresp)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		return nil, osError(resp)
+	}
+	var doc T
+	if err := json.Unmarshal(sresp.Source, &doc); err != nil {
+		return nil, err
+	}
+	return &doc, err
+}
+
 // Search searches for documents.
 // The orderBy argument is the column by which to order the results. A hyphen at its beginning signifies descending order.
 func Search[T any](ctx context.Context, cl *opensearch.Client, index string, expr Expr, orderBy string, pag *Pagination) ([]IDedDocument[T], int, error) {
