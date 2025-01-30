@@ -22,6 +22,8 @@ var (
 	ErrOpensearchRequestFailed = errors.New("OpenSearch error")
 	// ErrOpensearchBadRequest signifies that a JSON request for Opensearch is ill-formed.
 	ErrOpensearchBadRequest = errors.New("OpenSearch bad request")
+	// ErrDocumentNotFound signifies that no document was found.
+	ErrDocumentNotFound = errors.New("document not found")
 )
 
 // NewClient creates a new OpenSearch client.
@@ -75,7 +77,7 @@ func indexDoc[T any](ctx context.Context, cl *opensearch.Client, index, id strin
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode >= 400 {
+	if resp.IsError() {
 		return osError(resp)
 	}
 	return nil
@@ -111,7 +113,7 @@ func updateDoc[T any](ctx context.Context, cl *opensearch.Client, index, id stri
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode >= 400 {
+	if resp.IsError() {
 		return osError(resp)
 	}
 	return nil
@@ -142,10 +144,34 @@ func deleteDoc(ctx context.Context, cl *opensearch.Client, index, id string, par
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode >= 400 {
+	if resp.IsError() {
 		return osError(resp)
 	}
 	return nil
+}
+
+// Get gets a document.
+func Get[T any](ctx context.Context, cl *opensearch.Client, index, id string) (*T, error) {
+	req := opensearchapi.DocumentGetReq{
+		Index:      index,
+		DocumentID: id,
+	}
+	var sresp opensearchapi.DocumentGetResp
+	resp, err := cl.Do(ctx, req, &sresp)
+	if err != nil {
+		return nil, err
+	}
+	if resp.IsError() {
+		return nil, osError(resp)
+	}
+	if !sresp.Found {
+		return nil, ErrDocumentNotFound
+	}
+	var doc T
+	if err := json.Unmarshal(sresp.Source, &doc); err != nil {
+		return nil, err
+	}
+	return &doc, err
 }
 
 // Search searches for documents.
@@ -202,7 +228,7 @@ func Search[T any](ctx context.Context, cl *opensearch.Client, index string, exp
 	if err != nil {
 		return nil, 0, err
 	}
-	if resp.StatusCode >= 400 {
+	if resp.IsError() {
 		return nil, 0, osError(resp)
 	}
 	total := sresp.Hits.Total.Value
