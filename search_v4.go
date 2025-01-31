@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/mailstepcz/pointer"
@@ -250,6 +251,9 @@ func osError(resp *opensearch.Response) error {
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return serr.Wrap("search failed", ErrDocumentNotFound, serr.Int("statusCode", resp.StatusCode), serr.String("body", string(b)))
 	}
 	return serr.Wrap("search failed", ErrOpensearchRequestFailed, serr.Int("statusCode", resp.StatusCode), serr.String("body", string(b)))
 }
