@@ -1,6 +1,7 @@
 package search
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -63,4 +64,17 @@ func TestOpensearchIntervalGteLte(t *testing.T) {
 	m, err := e.Map(OpenSearch)
 	req.NoError(err)
 	req.Equal(Map{[]KVPair{{"range", Map{[]KVPair{{"a", Map{Pairs: []KVPair{{Key: "gte", Value: from}, {Key: "lte", Value: to}}}}}}}}}, m)
+}
+
+func TestOpensearchWildcard(t *testing.T) {
+	req := require.New(t)
+
+	e := Wildcard{"field", "Ad Ba"}
+	m, err := e.Map(OpenSearch)
+	req.NoError(err)
+
+	b, err := json.Marshal(m)
+	req.NoError(err)
+
+	req.Equal(`[{"wildcard":{"field":{"value":"*Ad*","case_insensitive":true}}},{"wildcard":{"field":{"value":"*Ba*","case_insensitive":true}}}]`, string(b))
 }
