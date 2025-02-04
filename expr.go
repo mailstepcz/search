@@ -2,6 +2,8 @@ package search
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/mailstepcz/serr"
 )
@@ -81,6 +83,44 @@ func (e Match) Map(fl ExprFlavour) (interface{}, error) {
 				{e.Ident, e.Value},
 			}}}}}, nil
 	}
+	panic("unknown expression flavour: " + fl.String())
+}
+
+// Wildcard is an AST node for wildcard term queries.
+type Wildcard struct {
+	Ident string
+	Value string
+}
+
+// Idents returns all the identifiers in the expression.
+func (e Wildcard) Idents() []string {
+	return []string{e.Ident}
+}
+
+// Map returns the query map corresponding to the expression.
+func (e Wildcard) Map(fl ExprFlavour) (interface{}, error) {
+	switch fl {
+	case DocDB:
+		return nil, errors.ErrUnsupported
+	case OpenSearch:
+		parts := strings.Split(e.Value, " ")
+		pairs := make([]Map, 0, len(parts))
+		for _, part := range parts {
+			if part == "" {
+				continue
+			}
+			pairs = append(pairs, Map{[]KVPair{KVPair{
+				"wildcard", Map{
+					[]KVPair{
+						{e.Ident, Map{[]KVPair{
+							{"value", fmt.Sprintf("*%v*", part)},
+							{"case_insensitive", true},
+						}}}}}}}})
+		}
+
+		return pairs, nil
+	}
+
 	panic("unknown expression flavour: " + fl.String())
 }
 
@@ -180,9 +220,13 @@ func (e And) Map(fl ExprFlavour) (interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
-			if em2, ok := em.(Map); ok {
+
+			switch em2 := em.(type) {
+			case []Map:
+				l = append(l, em2...)
+			case Map:
 				l = append(l, em2)
-			} else {
+			default:
 				return nil, serr.New("expected map", serr.Any("expr", em))
 			}
 		}
