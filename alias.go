@@ -20,7 +20,7 @@ type aliasesBody struct {
 }
 
 // AliasSet sets alias to the index.
-func AliasSet(ctx context.Context, client opensearchapi.Client, index, alias string) error {
+func AliasSet(ctx context.Context, client *opensearchapi.Client, index, alias string) error {
 	body := aliasesBody{
 		Actions: []mapAny{
 			{"add": mapAny{"index": index, "alias": alias}},
@@ -46,7 +46,7 @@ func AliasSet(ctx context.Context, client opensearchapi.Client, index, alias str
 }
 
 // AliasGet returns alias if exists.
-func AliasGet(ctx context.Context, client opensearchapi.Client, alias string) (*Alias, error) {
+func AliasGet(ctx context.Context, client *opensearchapi.Client, alias string) (*Alias, error) {
 	aliasGetReq := opensearchapi.CatAliasesReq{
 		Aliases: []string{alias},
 	}
@@ -71,7 +71,7 @@ func AliasGet(ctx context.Context, client opensearchapi.Client, alias string) (*
 }
 
 // AliasExists checks if any index has given alias.
-func AliasExists(ctx context.Context, client opensearchapi.Client, alias string) (bool, error) {
+func AliasExists(ctx context.Context, client *opensearchapi.Client, alias string) (bool, error) {
 	osAlias, err := AliasGet(ctx, client, alias)
 	if err != nil {
 		return false, serr.Wrap("getting alias", err, serr.String("alias", alias))
@@ -81,7 +81,7 @@ func AliasExists(ctx context.Context, client opensearchapi.Client, alias string)
 }
 
 // AliasSwitch removes existing alias and adds alias to new index. Returns real index which was pointing to alias.
-func AliasSwitch(ctx context.Context, client opensearchapi.Client, alias, index string) error {
+func AliasSwitch(ctx context.Context, client *opensearchapi.Client, alias, index string) error {
 	osAlias, err := AliasGet(ctx, client, alias)
 	if err != nil {
 		return serr.Wrap("getting alias", err, serr.String("alias", alias))
