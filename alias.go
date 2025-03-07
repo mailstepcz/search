@@ -4,8 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/mailstepcz/serr"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
+)
+
+var (
+	ErrAliasNotFound = errors.New("alias not found")
 )
 
 // Alias represents openSearch alias.
@@ -61,7 +66,7 @@ func AliasGet(ctx context.Context, client *opensearchapi.Client, alias string) (
 	}
 
 	if len(resp.Aliases) == 0 {
-		return nil, serr.New("alias not found", serr.String("aliasName", alias))
+		return nil, serr.Wrap("alias not found", ErrAliasNotFound, serr.String("aliasName", alias))
 	}
 
 	return &Alias{
@@ -73,7 +78,7 @@ func AliasGet(ctx context.Context, client *opensearchapi.Client, alias string) (
 // AliasExists checks if any index has given alias.
 func AliasExists(ctx context.Context, client *opensearchapi.Client, alias string) (bool, error) {
 	osAlias, err := AliasGet(ctx, client, alias)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrAliasNotFound) {
 		return false, serr.Wrap("getting alias", err, serr.String("alias", alias))
 	}
 
