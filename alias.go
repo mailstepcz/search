@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	// ErrAliasNotFound alias not found error.
 	ErrAliasNotFound = errors.New("alias not found")
 )
 
@@ -85,7 +86,7 @@ func AliasExists(ctx context.Context, client *opensearchapi.Client, alias string
 	return osAlias != nil, nil
 }
 
-// AliasSwitch removes existing alias and adds alias to new index. Returns real index which was pointing to alias.
+// AliasSwitch removes existing alias and adds alias to new index.
 func AliasSwitch(ctx context.Context, client *opensearchapi.Client, alias, index string) error {
 	osAlias, err := AliasGet(ctx, client, alias)
 	if err != nil {
