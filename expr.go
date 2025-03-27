@@ -2,6 +2,7 @@ package search
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/mailstepcz/serr"
 )
@@ -92,7 +93,7 @@ func (e Wildcard) Map(fl ExprFlavour) (interface{}, error) {
 			"wildcard", Map{
 				[]KVPair{
 					{e.Ident, Map{[]KVPair{
-						{"value", e.Value},
+						{"value", fmt.Sprintf("*%s*", e.Value)},
 						{"case_insensitive", true},
 					}}}}}}}}, nil
 	}
