@@ -2,6 +2,7 @@ package search
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/mailstepcz/serr"
 )
@@ -68,6 +69,36 @@ type Match struct {
 // Idents returns all the identifiers in the expression.
 func (e Match) Idents() []string {
 	return []string{e.Ident}
+}
+
+// Wildcard is an AST node for wildcard term queries.
+type Wildcard struct {
+	Ident string
+	Value string
+}
+
+// Idents returns all the identifiers in the expression.
+func (e Wildcard) Idents() []string {
+	return []string{e.Ident}
+}
+
+// Map returns the query map corresponding to the expression.
+func (e Wildcard) Map(fl ExprFlavour) (interface{}, error) {
+	switch fl {
+	case DocDB:
+		return nil, errors.ErrUnsupported
+	case OpenSearch:
+
+		return Map{[]KVPair{KVPair{
+			"wildcard", Map{
+				[]KVPair{
+					{e.Ident, Map{[]KVPair{
+						{"value", fmt.Sprintf("*%s*", e.Value)},
+						{"case_insensitive", true},
+					}}}}}}}}, nil
+	}
+
+	panic("unknown expression flavour: " + fl.String())
 }
 
 // Map returns the query map corresponding to the expression.

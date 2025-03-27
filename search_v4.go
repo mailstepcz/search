@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/mailstepcz/pointer"
@@ -145,6 +146,9 @@ func deleteDoc(ctx context.Context, cl *opensearch.Client, index, id string, par
 		return err
 	}
 	if resp.IsError() {
+		if resp.StatusCode == http.StatusNotFound {
+			return errors.Join(ErrDocumentNotFound, osError(resp))
+		}
 		return osError(resp)
 	}
 	return nil
@@ -188,6 +192,7 @@ func Search[T any](ctx context.Context, cl *opensearch.Client, index string, exp
 	if !ok {
 		return nil, 0, fmt.Errorf("%w %T", ErrOpensearchBadRequest, maps)
 	}
+
 	q := searchQuery{
 		Query: searchBool{
 			Bool: searchMust{
