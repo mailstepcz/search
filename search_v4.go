@@ -256,6 +256,9 @@ func osError(resp *opensearch.Response) error {
 	if err != nil {
 		return err
 	}
+	if resp.StatusCode == http.StatusNotFound {
+		return serr.Wrap("search failed", ErrDocumentNotFound, serr.Int("statusCode", resp.StatusCode), serr.String("body", string(b)))
+	}
 	return serr.Wrap("search failed", ErrOpensearchRequestFailed, serr.Int("statusCode", resp.StatusCode), serr.String("body", string(b)))
 }
 
