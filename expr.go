@@ -221,3 +221,33 @@ func (e And) Map(fl ExprFlavour) (interface{}, error) {
 	}
 	panic("unknown expression flavour: " + fl.String())
 }
+
+// Neq is an AST node for inequality.
+type Neq[T any] struct {
+	Ident string
+	Value T
+}
+
+// Idents returns all the identifiers in the expression.
+func (e Neq[T]) Idents() []string {
+	return []string{e.Ident}
+}
+
+// Map returns the query map corresponding to the expression.
+func (e Neq[T]) Map(fl ExprFlavour) (interface{}, error) {
+	switch fl {
+	case DocDB:
+		return nil, errors.ErrUnsupported
+	case OpenSearch:
+		return Map{Pairs: []KVPair{
+			{"bool", Map{Pairs: []KVPair{
+				{"must_not", Map{Pairs: []KVPair{
+					{"term", Map{Pairs: []KVPair{
+						{e.Ident, e.Value},
+					}}},
+				}}},
+			}}},
+		}}, nil
+	}
+	panic("unknown expression flavour: " + fl.String())
+}
