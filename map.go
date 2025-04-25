@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // KVPair is a key-value pair.
@@ -35,6 +37,8 @@ func appendValue(b []byte, x interface{}) []byte {
 		return strconv.AppendFloat(b, x, 'e', -1, 64)
 	case string:
 		return strconv.AppendQuote(b, x)
+	case uuid.UUID:
+		return strconv.AppendQuote(b, x.String())
 	case time.Time:
 		return strconv.AppendQuote(b, x.Format(time.RFC3339))
 	case []string:
