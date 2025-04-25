@@ -64,3 +64,12 @@ func TestOpensearchIntervalGteLte(t *testing.T) {
 	req.NoError(err)
 	req.Equal(Map{[]KVPair{{"range", Map{[]KVPair{{"a", Map{Pairs: []KVPair{{Key: "gte", Value: from}, {Key: "lte", Value: to}}}}}}}}}, m)
 }
+
+func TestOpensearchTerms(t *testing.T) {
+	req := require.New(t)
+
+	e := Terms[string]{Ident: "activity", Values: []string{"activity1", "activity2"}}
+	m, err := e.Map(OpenSearch)
+	req.NoError(err)
+	req.Equal(Map{[]KVPair{{"terms", Map{[]KVPair{{"activity", []string{"activity1", "activity2"}}}}}}}, m)
+}

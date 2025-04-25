@@ -37,7 +37,16 @@ func appendValue(b []byte, x interface{}) []byte {
 		return strconv.AppendQuote(b, x)
 	case time.Time:
 		return strconv.AppendQuote(b, x.Format(time.RFC3339))
-	case []interface{}:
+	case []string:
+		b = append(b, '[')
+		for i, x := range x {
+			if i > 0 {
+				b = append(b, ',')
+			}
+			b = appendValue(b, x)
+		}
+		return append(b, ']')
+	case []any:
 		b = append(b, '[')
 		for i, x := range x {
 			if i > 0 {

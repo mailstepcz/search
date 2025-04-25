@@ -251,3 +251,30 @@ func (e Neq[T]) Map(fl ExprFlavour) (interface{}, error) {
 	}
 	panic("unknown expression flavour: " + fl.String())
 }
+
+// Terms is AST for SQL IN like queries.
+type Terms[T any] struct {
+	Ident  string
+	Values []T
+}
+
+// Idents returns all the identifiers in the expression.
+func (e Terms[T]) Idents() []string {
+	return []string{e.Ident}
+}
+
+// Map returns the query map corresponding to the expression.
+func (e Terms[T]) Map(fl ExprFlavour) (interface{}, error) {
+	switch fl {
+	case DocDB:
+		return Map{Pairs: []KVPair{
+			{e.Ident, e.Values},
+		}}, nil
+	case OpenSearch:
+		return Map{Pairs: []KVPair{
+			{"terms", Map{Pairs: []KVPair{
+				{e.Ident, e.Values},
+			}}}}}, nil
+	}
+	panic("unknown expression flavour: " + fl.String())
+}
