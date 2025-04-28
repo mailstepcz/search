@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // KVPair is a key-value pair.
@@ -23,6 +25,18 @@ func (p KVPair) appendJSON(b []byte) []byte {
 	return appendValue(b, p.Value)
 }
 
+func appendSlice[T any](b []byte, x []T) []byte {
+	b = append(b, '[')
+	for i, x := range x {
+		if i > 0 {
+			b = append(b, ',')
+		}
+		b = appendValue(b, x)
+	}
+	return append(b, ']')
+
+}
+
 func appendValue(b []byte, x interface{}) []byte {
 	switch x := x.(type) {
 	case bool:
@@ -35,26 +49,16 @@ func appendValue(b []byte, x interface{}) []byte {
 		return strconv.AppendFloat(b, x, 'e', -1, 64)
 	case string:
 		return strconv.AppendQuote(b, x)
+	case uuid.UUID:
+		return strconv.AppendQuote(b, x.String())
 	case time.Time:
 		return strconv.AppendQuote(b, x.Format(time.RFC3339))
+	case []uuid.UUID:
+		return appendSlice(b, x)
 	case []string:
-		b = append(b, '[')
-		for i, x := range x {
-			if i > 0 {
-				b = append(b, ',')
-			}
-			b = appendValue(b, x)
-		}
-		return append(b, ']')
+		return appendSlice(b, x)
 	case []any:
-		b = append(b, '[')
-		for i, x := range x {
-			if i > 0 {
-				b = append(b, ',')
-			}
-			b = appendValue(b, x)
-		}
-		return append(b, ']')
+		return appendSlice(b, x)
 	case Map:
 		return x.appendJSON(b)
 	}
