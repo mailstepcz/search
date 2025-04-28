@@ -3,6 +3,7 @@ package search
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -25,6 +26,18 @@ func (p KVPair) appendJSON(b []byte) []byte {
 	return appendValue(b, p.Value)
 }
 
+func appendSlice[T any](b []byte, x []T) []byte {
+	b = append(b, '[')
+	for i, x := range x {
+		if i > 0 {
+			b = append(b, ',')
+		}
+		b = appendValue(b, x)
+	}
+	return append(b, ']')
+
+}
+
 func appendValue(b []byte, x interface{}) []byte {
 	switch x := x.(type) {
 	case bool:
@@ -41,24 +54,12 @@ func appendValue(b []byte, x interface{}) []byte {
 		return strconv.AppendQuote(b, x.String())
 	case time.Time:
 		return strconv.AppendQuote(b, x.Format(time.RFC3339))
+	case []uuid.UUID:
+		return appendSlice(b, x)
 	case []string:
-		b = append(b, '[')
-		for i, x := range x {
-			if i > 0 {
-				b = append(b, ',')
-			}
-			b = appendValue(b, x)
-		}
-		return append(b, ']')
+		return appendSlice(b, x)
 	case []any:
-		b = append(b, '[')
-		for i, x := range x {
-			if i > 0 {
-				b = append(b, ',')
-			}
-			b = appendValue(b, x)
-		}
-		return append(b, ']')
+		return appendSlice(b, x)
 	case Map:
 		return x.appendJSON(b)
 	}

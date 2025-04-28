@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,11 +24,13 @@ func TestMapJSON(t *testing.T) {
 			{"a", 1},
 			{"b", "2"},
 		}}},
+		{"h", []string{"hello world"}},
+		{"k", []uuid.UUID{uuid.MustParse("52eab613-58a6-498c-8947-781eeba0011d")}},
 	}}
 
 	b := m.JSON()
 
-	req.Equal(`{"a":1234,"b":1.234e+01,"c":true,"d":"abcdefgh","e":"0002-01-01T01:00:00Z","f":["abcd",1234],"g":{"a":1,"b":"2"}}`, string(b))
+	req.Equal(`{"a":1234,"b":1.234e+01,"c":true,"d":"abcdefgh","e":"0002-01-01T01:00:00Z","f":["abcd",1234],"g":{"a":1,"b":"2"},"h":["hello world"],"k":["52eab613-58a6-498c-8947-781eeba0011d"]}`, string(b))
 
 	var m2 map[string]interface{}
 	err := json.Unmarshal(b, &m2)
