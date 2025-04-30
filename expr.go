@@ -94,7 +94,7 @@ func (e Wildcard) Map(fl ExprFlavour) (interface{}, error) {
 				[]KVPair{
 					{e.Ident, Map{[]KVPair{
 						{"value", fmt.Sprintf("*%s*", e.Value)},
-						{"case_insensitive", true},
+						// {"case_insensitive", true},
 					}}}}}}}}, nil
 	}
 
