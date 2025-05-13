@@ -73,3 +73,18 @@ func TestOpensearchTerms(t *testing.T) {
 	req.NoError(err)
 	req.Equal(Map{[]KVPair{{"terms", Map{[]KVPair{{"activity", []string{"activity1", "activity2"}}}}}}}, m)
 }
+
+func TestOpensearchWildcard(t *testing.T) {
+	req := require.New(t)
+	e := Wildcard{Ident: "username", Value: "john"}
+	m, err := e.Map(OpenSearch)
+	req.NoError(err)
+	req.Equal(Map{[]KVPair{
+		{"wildcard", Map{[]KVPair{
+			{"username", Map{[]KVPair{
+				{"value", "*john*"},
+				{"case_insensitive", true},
+			}}},
+		}}},
+	}}, m)
+}
