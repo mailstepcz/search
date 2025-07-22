@@ -105,7 +105,11 @@ func UpdateWithRefresh[T any](ctx context.Context, cl *opensearch.Client, index,
 
 // UpdatePartial updates only specified fields on document.
 func UpdatePartial(ctx context.Context, cl *opensearch.Client, index, id string, partialDoc map[string]any) error {
-	b, err := json.Marshal(partialDoc)
+	payload := map[string]any{
+		"doc": partialDoc,
+	}
+
+	b, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
@@ -115,7 +119,11 @@ func UpdatePartial(ctx context.Context, cl *opensearch.Client, index, id string,
 // UpdatePartialWithRefresh updates only specified fields on document with refresh = true parameter.
 // https://opensearch.org/docs/latest/api-reference/document-apis/update-document/#query-parameters
 func UpdatePartialWithRefresh(ctx context.Context, cl *opensearch.Client, index, id string, partialDoc map[string]any) error {
-	b, err := json.Marshal(partialDoc)
+	payload := map[string]any{
+		"doc": partialDoc,
+	}
+
+	b, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
