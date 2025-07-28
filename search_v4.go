@@ -86,20 +86,51 @@ func indexDoc[T any](ctx context.Context, cl *opensearch.Client, index, id strin
 
 // Update indexes a document.
 func Update[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T) error {
-	return updateDoc(ctx, cl, index, id, doc, nil)
+	b, err := json.Marshal(doc)
+	if err != nil {
+		return err
+	}
+	return updateDoc(ctx, cl, index, id, b, nil)
 }
 
 // UpdateWithRefresh updates a document with refresh = true parameter.
 // https://opensearch.org/docs/latest/api-reference/document-apis/update-document/#query-parameters
 func UpdateWithRefresh[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T) error {
-	return updateDoc(ctx, cl, index, id, doc, &opensearchapi.UpdateParams{Refresh: "true"})
-}
-
-func updateDoc[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T, params *opensearchapi.UpdateParams) error {
 	b, err := json.Marshal(doc)
 	if err != nil {
 		return err
 	}
+	return updateDoc(ctx, cl, index, id, b, &opensearchapi.UpdateParams{Refresh: "true"})
+}
+
+// UpdatePartial updates only specified fields on document.
+func UpdatePartial(ctx context.Context, cl *opensearch.Client, index, id string, partialDoc map[string]any) error {
+	payload := map[string]any{
+		"doc": partialDoc,
+	}
+
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	return updateDoc(ctx, cl, index, id, b, nil)
+}
+
+// UpdatePartialWithRefresh updates only specified fields on document with refresh = true parameter.
+// https://opensearch.org/docs/latest/api-reference/document-apis/update-document/#query-parameters
+func UpdatePartialWithRefresh(ctx context.Context, cl *opensearch.Client, index, id string, partialDoc map[string]any) error {
+	payload := map[string]any{
+		"doc": partialDoc,
+	}
+
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	return updateDoc(ctx, cl, index, id, b, &opensearchapi.UpdateParams{Refresh: "true"})
+}
+
+func updateDoc(ctx context.Context, cl *opensearch.Client, index, id string, b []byte, params *opensearchapi.UpdateParams) error {
 	req := opensearchapi.UpdateReq{
 		Index:      index,
 		DocumentID: id,
