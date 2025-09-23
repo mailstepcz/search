@@ -9,6 +9,7 @@ import (
 	"github.com/opensearch-project/opensearch-go/v4"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"io"
+	"net/http"
 )
 
 var (
@@ -80,15 +81,21 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation
 					continue
 				}
 
+				itemErr := ErrBulkItemError
+				if item.Status == http.StatusNotFound {
+					itemErr = ErrDocumentNotFound
+				}
+
 				errs = errors.Join(errs, serr.Wrap(
 					"",
-					ErrBulkItemError,
+					itemErr,
 					serr.String("id", item.ID),
 					serr.String("index", item.Index),
 					serr.String("type", item.Error.Type),
 					serr.String("reason", item.Error.Reason),
 					serr.String("causeType", item.Error.Cause.Type),
 					serr.String("causeReason", item.Error.Cause.Reason),
+					serr.String("status", http.StatusText(item.Status)),
 				))
 			}
 		}

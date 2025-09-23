@@ -146,6 +146,9 @@ func updateDoc(ctx context.Context, cl *opensearch.Client, index, id string, b [
 		return err
 	}
 	if resp.IsError() {
+		if resp.StatusCode == http.StatusNotFound {
+			return errors.Join(ErrDocumentNotFound, osError(resp))
+		}
 		return osError(resp)
 	}
 	return nil
