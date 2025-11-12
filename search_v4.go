@@ -85,12 +85,22 @@ func indexDoc[T any](ctx context.Context, cl *opensearch.Client, index, id strin
 }
 
 // Update indexes a document.
-func Update[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T) error {
+func Update[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T, opts ...UpdateOption) error {
 	b, err := json.Marshal(doc)
 	if err != nil {
 		return err
 	}
-	return updateDoc(ctx, cl, index, id, b, nil)
+
+	var params *opensearchapi.UpdateParams
+	// apply all options
+	if len(opts) > 0 {
+		params = new(opensearchapi.UpdateParams)
+		for _, opt := range opts {
+			opt(params)
+		}
+	}
+
+	return updateDoc(ctx, cl, index, id, b, params)
 }
 
 // UpdateWithRefresh updates a document with refresh = true parameter.
@@ -341,4 +351,22 @@ type searchBool struct {
 
 type searchMust struct {
 	Must interface{} `json:"must"`
+}
+
+// UpdateOption allows customization of Update behavior.
+type UpdateOption func(*opensearchapi.UpdateParams)
+
+// WithRefresh sets the refresh flag to "true".
+// https://opensearch.org/docs/latest/api-reference/document-apis/update-document/#query-parameters
+func WithRefresh() UpdateOption {
+	return func(p *opensearchapi.UpdateParams) {
+		p.Refresh = "true"
+	}
+}
+
+// WithRetryOnConflict sets how many times the update should be retried on conflict.
+func WithRetryOnConflict(n int) UpdateOption {
+	return func(p *opensearchapi.UpdateParams) {
+		p.RetryOnConflict = &n
+	}
 }
