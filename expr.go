@@ -88,7 +88,6 @@ func (e Wildcard) Map(fl ExprFlavour) (interface{}, error) {
 	case DocDB:
 		return nil, errors.ErrUnsupported
 	case OpenSearch:
-
 		return Map{[]KVPair{KVPair{
 			"wildcard", Map{
 				[]KVPair{
@@ -268,7 +267,11 @@ func (e Exists) Map(fl ExprFlavour) (interface{}, error) {
 	case DocDB:
 		return nil, errors.ErrUnsupported
 	case OpenSearch:
-		return Map{}, nil
+		return Map{[]KVPair{KVPair{
+			"exists", Map{
+				[]KVPair{
+					{"field", e.Ident},
+				}}}}}, nil
 	}
 	panic("unknown expression flavour: " + fl.String())
 }
@@ -289,7 +292,15 @@ func (e NotExists) Map(fl ExprFlavour) (interface{}, error) {
 	case DocDB:
 		return nil, errors.ErrUnsupported
 	case OpenSearch:
-		return Map{}, nil
+		return Map{Pairs: []KVPair{
+			{"bool", Map{Pairs: []KVPair{
+				{"must_not", Map{Pairs: []KVPair{
+					{"exists", Map{Pairs: []KVPair{
+						{"field", e.Ident},
+					}}},
+				}}},
+			}}},
+		}}, nil
 	}
 	panic("unknown expression flavour: " + fl.String())
 }

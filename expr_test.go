@@ -88,3 +88,33 @@ func TestOpensearchWildcard(t *testing.T) {
 		}}},
 	}}, m)
 }
+
+func TestOpenSearachExists(t *testing.T) {
+	req := require.New(t)
+	ident := "updatedAt"
+	e := Exists{Ident: ident}
+	m, err := e.Map(OpenSearch)
+	req.NoError(err)
+	req.Equal(Map{[]KVPair{
+		{"exists", Map{[]KVPair{
+			{"field", ident},
+		}}},
+	}}, m)
+}
+
+func TestOpenSearachNotExists(t *testing.T) {
+	req := require.New(t)
+	ident := "shippingContainerBarcode"
+	e := NotExists{Ident: ident}
+	m, err := e.Map(OpenSearch)
+	req.NoError(err)
+	req.Equal(Map{[]KVPair{
+		{"bool", Map{[]KVPair{
+			{"must_not", Map{[]KVPair{
+				{"exists", Map{[]KVPair{
+					{"field", ident},
+				}}},
+			}}},
+		}}},
+	}}, m)
+}
