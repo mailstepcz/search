@@ -252,6 +252,48 @@ func (e Neq[T]) Map(fl ExprFlavour) (interface{}, error) {
 	panic("unknown expression flavour: " + fl.String())
 }
 
+// Exists is an AST node for exists.
+type Exists struct {
+	Ident string
+}
+
+// Idents returns all the identifiers in the expression.
+func (e Exists) Idents() []string {
+	return []string{e.Ident}
+}
+
+// Map returns the query map corresponding to the expression.
+func (e Exists) Map(fl ExprFlavour) (interface{}, error) {
+	switch fl {
+	case DocDB:
+		return nil, errors.ErrUnsupported
+	case OpenSearch:
+		return Map{}, nil
+	}
+	panic("unknown expression flavour: " + fl.String())
+}
+
+// NotExists is an AST node for not exists.
+type NotExists struct {
+	Ident string
+}
+
+// Idents returns all the identifiers in the expression.
+func (e NotExists) Idents() []string {
+	return []string{e.Ident}
+}
+
+// Map returns the query map corresponding to the expression.
+func (e NotExists) Map(fl ExprFlavour) (interface{}, error) {
+	switch fl {
+	case DocDB:
+		return nil, errors.ErrUnsupported
+	case OpenSearch:
+		return Map{}, nil
+	}
+	panic("unknown expression flavour: " + fl.String())
+}
+
 // Terms is AST for SQL IN like queries.
 type Terms[T any] struct {
 	Ident  string
@@ -278,3 +320,15 @@ func (e Terms[T]) Map(fl ExprFlavour) (interface{}, error) {
 	}
 	panic("unknown expression flavour: " + fl.String())
 }
+
+var (
+	_ Expr = new(Terms[any])
+	_ Expr = new(Exists)
+	_ Expr = new(NotExists)
+	_ Expr = new(Eq[string])
+	_ Expr = new(Neq[string])
+	_ Expr = new(And)
+	_ Expr = new(Interval[string])
+	_ Expr = new(Match)
+	_ Expr = new(Wildcard)
+)
