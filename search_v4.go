@@ -25,6 +25,12 @@ var (
 	ErrOpensearchBadRequest = errors.New("OpenSearch bad request")
 	// ErrDocumentNotFound signifies that no document was found.
 	ErrDocumentNotFound = errors.New("document not found")
+
+	// ErrScrollDeleteFailed represents an error from OpenSearch that scroll delete request was not successful.
+	ErrScrollDeleteFailed = errors.New("OpenSearch scroll delete request failed")
+	// ErrScrollNotFreed represents an error from OpenSearch when scroll delete request was
+	// successful, but requested scroll was not freed.
+	ErrScrollNotFreed = errors.New("OpenSearch scroll was not freed")
 )
 
 // NewClient creates a new OpenSearch client.
@@ -271,6 +277,7 @@ func Search[T any](ctx context.Context, cl *opensearch.Client, index string, exp
 	req := opensearchapi.SearchReq{
 		Indices: []string{index},
 		Body:    content,
+		Params:  opensearchapi.SearchParams{},
 	}
 	var sresp opensearchapi.SearchResp
 	resp, err := cl.Do(ctx, req, &sresp)
@@ -293,6 +300,33 @@ func Search[T any](ctx context.Context, cl *opensearch.Client, index string, exp
 		})
 	}
 	return docs, total, nil
+}
+
+func StartScroll[T any](ctx context.Context, cl *opensearch.Client, index string, expr Expr, orderBy string, size int) ([]IDedDocument[T], int, error) {
+	resp, err := cl.Do(ctx)
+}
+
+func StopScroll(ctx context.Context, cl *opensearch.Client, scrollID string) error {
+	var osResponse opensearchapi.ScrollDeleteResp
+	resp, err := cl.Do(ctx, opensearchapi.ScrollDeleteReq{
+		ScrollIDs: []string{scrollID},
+	}, &osResponse)
+	if err != nil {
+		return err
+	}
+	if resp.IsError() {
+		return osError(resp)
+	}
+
+	if !osResponse.Succeeded {
+		return serr.Wrap("", ErrScrollDeleteFailed, serr.String("scrollID", scrollID))
+	}
+
+	if osResponse.NumFreed != 1 {
+		return serr.Wrap("", ErrScrollNotFreed, serr.String("scrollID", scrollID))
+	}
+
+	return nil
 }
 
 func osError(resp *opensearch.Response) error {
