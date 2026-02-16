@@ -318,10 +318,13 @@ func StartScroll[T any](ctx context.Context, cl *opensearch.Client, index string
 	}, nil
 }
 
-func Scroll[T any](ctx context.Context, cl *opensearch.Client, searchID string) (*ScrollResponse[T], error) {
+func Scroll[T any](ctx context.Context, cl *opensearch.Client, searchID string, scrollWindow time.Duration) (*ScrollResponse[T], error) {
 	var osResponse opensearchapi.ScrollGetResp
 	resp, err := cl.Do(ctx, opensearchapi.ScrollGetReq{
 		ScrollID: searchID,
+		Params: opensearchapi.ScrollGetParams{
+			Scroll: scrollWindow,
+		},
 	}, &osResponse)
 	if err != nil {
 		return nil, err
