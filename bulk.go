@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+
 	"github.com/mailstepcz/serr"
 	"github.com/opensearch-project/opensearch-go/v4"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
-	"io"
-	"net/http"
 )
 
 var (
@@ -67,7 +68,7 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 
 	if resp.IsError() {
 		return osError(resp)
