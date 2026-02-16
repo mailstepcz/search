@@ -318,7 +318,9 @@ func StartScroll[T any](ctx context.Context, cl *opensearch.Client, index string
 
 func Scroll[T any](ctx context.Context, cl *opensearch.Client, searchID string) (*ScrollResponse[T], error) {
 	var osResponse opensearchapi.ScrollGetResp
-	resp, err := cl.Do(ctx, opensearchapi.ScrollGetReq{}, &osResponse)
+	resp, err := cl.Do(ctx, opensearchapi.ScrollGetReq{
+		ScrollID: searchID,
+	}, &osResponse)
 	if err != nil {
 		return nil, err
 	}
