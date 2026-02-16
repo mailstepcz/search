@@ -275,6 +275,8 @@ func StartScroll[T any](ctx context.Context, cl *opensearch.Client, index string
 		return nil, err
 	}
 
+	query.Size = &size
+
 	b, err := json.Marshal(query)
 	if err != nil {
 		return nil, err
