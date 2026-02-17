@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/mailstepcz/serr"
+
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
+
+	"github.com/mailstepcz/serr"
 )
 
 type indexCreateBody struct {

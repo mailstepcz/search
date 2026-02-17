@@ -10,7 +10,7 @@ import (
 // ExprFlavour is a flavour of expressions.
 type ExprFlavour int
 
-// flavours
+// flavours.
 const (
 	DocDB ExprFlavour = iota
 	OpenSearch
@@ -30,7 +30,7 @@ func (fl ExprFlavour) String() string {
 // Expr is an AST node representing an expression.
 type Expr interface {
 	Idents() []string
-	Map(ExprFlavour) (interface{}, error)
+	Map(ExprFlavour) (any, error)
 }
 
 // Eq is an AST node for equality.
@@ -45,7 +45,7 @@ func (e Eq[T]) Idents() []string {
 }
 
 // Map returns the query map corresponding to the expression.
-func (e Eq[T]) Map(fl ExprFlavour) (interface{}, error) {
+func (e Eq[T]) Map(fl ExprFlavour) (any, error) {
 	switch fl {
 	case DocDB:
 		return Map{Pairs: []KVPair{
@@ -83,12 +83,12 @@ func (e Wildcard) Idents() []string {
 }
 
 // Map returns the query map corresponding to the expression.
-func (e Wildcard) Map(fl ExprFlavour) (interface{}, error) {
+func (e Wildcard) Map(fl ExprFlavour) (any, error) {
 	switch fl {
 	case DocDB:
 		return nil, errors.ErrUnsupported
 	case OpenSearch:
-		return Map{[]KVPair{KVPair{
+		return Map{[]KVPair{{
 			"wildcard", Map{
 				[]KVPair{
 					{e.Ident, Map{[]KVPair{
@@ -101,7 +101,7 @@ func (e Wildcard) Map(fl ExprFlavour) (interface{}, error) {
 }
 
 // Map returns the query map corresponding to the expression.
-func (e Match) Map(fl ExprFlavour) (interface{}, error) {
+func (e Match) Map(fl ExprFlavour) (any, error) {
 	switch fl {
 	case DocDB:
 		return nil, errors.ErrUnsupported
@@ -129,7 +129,7 @@ func (e Interval[T]) Idents() []string {
 }
 
 // Map returns the query map corresponding to the expression.
-func (e Interval[T]) Map(fl ExprFlavour) (interface{}, error) {
+func (e Interval[T]) Map(fl ExprFlavour) (any, error) {
 	switch fl {
 	case DocDB:
 		conds := make([]KVPair, 0, 2)
@@ -187,7 +187,7 @@ func (e And) Idents() []string {
 }
 
 // Map returns the query map corresponding to the expression.
-func (e And) Map(fl ExprFlavour) (interface{}, error) {
+func (e And) Map(fl ExprFlavour) (any, error) {
 	switch fl {
 	case DocDB:
 		m := Map{Pairs: make([]KVPair, 0, len(e.Exprs))}
@@ -233,7 +233,7 @@ func (e Neq[T]) Idents() []string {
 }
 
 // Map returns the query map corresponding to the expression.
-func (e Neq[T]) Map(fl ExprFlavour) (interface{}, error) {
+func (e Neq[T]) Map(fl ExprFlavour) (any, error) {
 	switch fl {
 	case DocDB:
 		return nil, errors.ErrUnsupported
@@ -262,12 +262,12 @@ func (e Exists) Idents() []string {
 }
 
 // Map returns the query map corresponding to the expression.
-func (e Exists) Map(fl ExprFlavour) (interface{}, error) {
+func (e Exists) Map(fl ExprFlavour) (any, error) {
 	switch fl {
 	case DocDB:
 		return nil, errors.ErrUnsupported
 	case OpenSearch:
-		return Map{[]KVPair{KVPair{
+		return Map{[]KVPair{{
 			"exists", Map{
 				[]KVPair{
 					{"field", e.Ident},
@@ -287,7 +287,7 @@ func (e NotExists) Idents() []string {
 }
 
 // Map returns the query map corresponding to the expression.
-func (e NotExists) Map(fl ExprFlavour) (interface{}, error) {
+func (e NotExists) Map(fl ExprFlavour) (any, error) {
 	switch fl {
 	case DocDB:
 		return nil, errors.ErrUnsupported
@@ -317,7 +317,7 @@ func (e Terms[T]) Idents() []string {
 }
 
 // Map returns the query map corresponding to the expression.
-func (e Terms[T]) Map(fl ExprFlavour) (interface{}, error) {
+func (e Terms[T]) Map(fl ExprFlavour) (any, error) {
 	switch fl {
 	case DocDB:
 		return Map{Pairs: []KVPair{

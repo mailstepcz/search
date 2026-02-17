@@ -12,9 +12,10 @@ import (
 // KVPair is a key-value pair.
 type KVPair struct {
 	Key   string
-	Value interface{}
+	Value any
 }
 
+// String returns string representation of key value pair.
 func (p KVPair) String() string {
 	return fmt.Sprintf("%s: %v", p.Key, p.Value)
 }
@@ -37,7 +38,7 @@ func appendSlice[T any](b []byte, x []T) []byte {
 
 }
 
-func appendValue(b []byte, x interface{}) []byte {
+func appendValue(b []byte, x any) []byte {
 	switch x := x.(type) {
 	case bool:
 		return strconv.AppendBool(b, x)
@@ -72,17 +73,6 @@ type Map struct {
 	Pairs []KVPair
 }
 
-func (m Map) appendJSON(b []byte) []byte {
-	b = append(b, '{')
-	for i, p := range m.Pairs {
-		if i > 0 {
-			b = append(b, ',')
-		}
-		b = p.appendJSON(b)
-	}
-	return append(b, '}')
-}
-
 // MarshalJSON marshals the map into JSON.
 func (m Map) MarshalJSON() ([]byte, error) {
 	return m.JSON(), nil
@@ -94,4 +84,15 @@ var _ json.Marshaler = Map{}
 func (m Map) JSON() []byte {
 	b := make([]byte, 0, 100)
 	return m.appendJSON(b)
+}
+
+func (m Map) appendJSON(b []byte) []byte {
+	b = append(b, '{')
+	for i, p := range m.Pairs {
+		if i > 0 {
+			b = append(b, ',')
+		}
+		b = p.appendJSON(b)
+	}
+	return append(b, '}')
 }

@@ -1,8 +1,6 @@
 version: "2"
 linters:
   exclusions:
-    paths:
-      - internal/core/ports/portsdriven/mocks
     rules:
       - path: '(.+)_test\.go'
         linters:
@@ -21,7 +19,7 @@ linters:
     - errname
     - exhaustive
     - goconst
-    - godoclint
+    # - godoclint // TODO
     - godot
     - revive
     - funcorder
@@ -35,7 +33,7 @@ linters:
     - testifylint
     - wastedassign
     - tagalign
-    - exhaustruct
+    # - exhaustruct // TODO
   settings:
     makezero:
       always: true
@@ -70,7 +68,7 @@ issues:
   max-same-issues: 0
   max-issues-per-linter: 0
 run:
-  go: "1.25.1"
+  go: "1.26.0"
 severity:
   default: error
 formatters:

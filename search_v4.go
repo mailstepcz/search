@@ -12,11 +12,12 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/mailstepcz/pointer"
-	"github.com/mailstepcz/serr"
 	"github.com/opensearch-project/opensearch-go/v4"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	requestsigner "github.com/opensearch-project/opensearch-go/v4/signer/awsv2"
+
+	"github.com/mailstepcz/pointer"
+	"github.com/mailstepcz/serr"
 )
 
 var (
@@ -444,7 +445,7 @@ func buildQuery(expr Expr, orderBy string, pag *Pagination) (*searchQuery, error
 			orderBy = orderBy[1:]
 		}
 		field := orderBy
-		q.Sort = []map[string]interface{}{
+		q.Sort = []map[string]any{
 			{
 				field: map[string]string{
 					"order": dir,
@@ -493,10 +494,10 @@ func Convert[T any, D any, PD interface {
 }
 
 type searchQuery struct {
-	Query searchBool               `json:"query"`
-	Sort  []map[string]interface{} `json:"sort,omitempty"`
-	From  *int                     `json:"from,omitempty"`
-	Size  *int                     `json:"size,omitempty"`
+	Query searchBool       `json:"query"`
+	Sort  []map[string]any `json:"sort,omitempty"`
+	From  *int             `json:"from,omitempty"`
+	Size  *int             `json:"size,omitempty"`
 }
 
 type searchBool struct {
@@ -504,7 +505,7 @@ type searchBool struct {
 }
 
 type searchMust struct {
-	Must interface{} `json:"must"`
+	Must any `json:"must"`
 }
 
 // UpdateOption allows customization of Update behavior.

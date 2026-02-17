@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/mailstepcz/serr"
+
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
+
+	"github.com/mailstepcz/serr"
 )
 
 var (

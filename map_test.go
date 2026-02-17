@@ -19,7 +19,7 @@ func TestMapJSON(t *testing.T) {
 		{"c", true},
 		{"d", "abcdefgh"},
 		{"e", ts},
-		{"f", []interface{}{"abcd", 1234}},
+		{"f", []any{"abcd", 1234}},
 		{"g", Map{Pairs: []KVPair{
 			{"a", 1},
 			{"b", "2"},
@@ -30,27 +30,27 @@ func TestMapJSON(t *testing.T) {
 
 	b := m.JSON()
 
-	req.Equal(`{"a":1234,"b":1.234e+01,"c":true,"d":"abcdefgh","e":"0002-01-01T01:00:00Z","f":["abcd",1234],"g":{"a":1,"b":"2"},"h":["hello world"],"k":["52eab613-58a6-498c-8947-781eeba0011d"]}`, string(b))
+	req.JSONEq(`{"a":1234,"b":1.234e+01,"c":true,"d":"abcdefgh","e":"0002-01-01T01:00:00Z","f":["abcd",1234],"g":{"a":1,"b":"2"},"h":["hello world"],"k":["52eab613-58a6-498c-8947-781eeba0011d"]}`, string(b))
 
-	var m2 map[string]interface{}
+	var m2 map[string]any
 	err := json.Unmarshal(b, &m2)
 	req.NoError(err)
 }
 
-var gr interface{}
+var gr any
 
 func BenchmarkStdlibMarshalling(b *testing.B) {
 	ts := time.Time{}.Add((24*365 + 1) * time.Hour)
-	var lr interface{}
+	var lr any
 	for i := 0; i < b.N; i++ {
-		m := map[string]interface{}{
+		m := map[string]any{
 			"a": 1234,
 			"b": 12.34,
 			"c": true,
 			"d": "abcdefgh",
 			"e": ts,
-			"f": []interface{}{"abcd", 1234},
-			"g": map[string]interface{}{
+			"f": []any{"abcd", 1234},
+			"g": map[string]any{
 				"a": 1,
 				"b": "2",
 			},
@@ -66,7 +66,7 @@ func BenchmarkStdlibMarshalling(b *testing.B) {
 
 func BenchmarkOurMarshalling(b *testing.B) {
 	ts := time.Time{}.Add((24*365 + 1) * time.Hour)
-	var lr interface{}
+	var lr any
 	for i := 0; i < b.N; i++ {
 		m := Map{Pairs: []KVPair{
 			{"a", 1234},
@@ -74,7 +74,7 @@ func BenchmarkOurMarshalling(b *testing.B) {
 			{"c", true},
 			{"d", "abcdefgh"},
 			{"e", ts},
-			{"f", []interface{}{"abcd", 1234}},
+			{"f", []any{"abcd", 1234}},
 			{"g", Map{Pairs: []KVPair{
 				{"a", 1},
 				{"b", "2"},
