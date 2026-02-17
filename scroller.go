@@ -49,12 +49,19 @@ func (s *Scroller[T]) Next(ctx context.Context) bool {
 		return false
 	}
 
+	if len(s.docs) == 0 {
+		return false
+	}
+
 	return true
 
 }
 
 // Doc returns next document for processing.
 func (s *Scroller[T]) Doc() IDedDocument[T] {
+	if len(s.docs) == 0 {
+		panic("docs is an empty array, cannot access document from an empty array")
+	}
 	doc := s.docs[0]
 	s.docs = s.docs[1:]
 	s.returned++
@@ -74,6 +81,7 @@ func (s *Scroller[T]) Close(ctx context.Context) error {
 	}
 
 	if err := StopScroll(ctx, s.cl, s.scrollID); err != nil {
+		s.err = err
 		return err
 	}
 

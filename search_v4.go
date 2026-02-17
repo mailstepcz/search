@@ -348,15 +348,15 @@ func NextScroll[T any](ctx context.Context, cl *opensearch.Client, scrollID stri
 		return nil, osError(resp)
 	}
 
+	if osResponse.ScrollID == nil {
+		return nil, ErrScrollNotDefined
+	}
+
 	total := osResponse.Hits.Total.Value
 
 	docs, err := mapDocs[T](osResponse.Hits.Hits)
 	if err != nil {
 		return nil, err
-	}
-
-	if osResponse.ScrollID == nil {
-		return nil, ErrScrollNotDefined
 	}
 
 	return &ScrollResponse[T]{
