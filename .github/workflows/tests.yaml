@@ -28,7 +28,7 @@ jobs:
           go test -v ./...
       - uses: actions/setup-go@v6
         with:
-          go-version: ${{ matrix.os }}
+          go-version: ${{ matrix.go-version }}
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
