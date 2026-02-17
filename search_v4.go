@@ -477,7 +477,7 @@ type IDedDocument[T any] struct {
 	Document *T
 }
 
-// Represents scroll response.
+// ScrollResponse represents scroll response.
 type ScrollResponse[T any] struct {
 	Docs     []IDedDocument[T]
 	ScrollID string
