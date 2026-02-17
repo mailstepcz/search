@@ -1,0 +1,88 @@
+version: "2"
+linters:
+  exclusions:
+    rules:
+      - path: '(.+)_test\.go'
+        linters:
+          - godoclint
+          - errcheck
+          - goconst
+          - makezero
+          - gosec
+          - err113
+          - exhaustruct
+  enable:
+    - dupl
+    - govet
+    - embeddedstructfieldcheck
+    - err113
+    - errname
+    - exhaustive
+    - goconst
+    # - godoclint // TODO
+    - godot
+    - revive
+    - funcorder
+    - gocheckcompilerdirectives
+    - gosec
+    - iface
+    - importas
+    - makezero
+    - musttag
+    - recvcheck
+    - testifylint
+    - wastedassign
+    - tagalign
+    # - exhaustruct // TODO
+  settings:
+    makezero:
+      always: true
+    godoclint:
+      default: none
+      enable:
+        - start-with-name
+        - require-doc
+        - deprecated
+        - max-len
+        - no-unused-link
+      options:
+        max-len:
+          length: 150
+    errcheck:
+      verbose: true
+    dupl:
+      threshold: 3050 # lower in the future
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true
+    exhaustive:
+      default-signifies-exhaustive: true
+    gosec:
+      excludes:
+        - G115 # Potential integer overflow when converting between integer types
+    exhaustruct:
+      allow-empty-returns: true
+      allow-empty: true
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
+run:
+  go: "1.26.0"
+severity:
+  default: error
+formatters:
+  enable:
+    - gci
+    - gofmt
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/mailstepcz)
+        - prefix(gitlab.com/mailstep)
+    gofmt:
+      rewrite-rules:
+        - pattern: "interface{}"
+          replacement: "any"

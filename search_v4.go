@@ -9,13 +9,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/mailstepcz/pointer"
-	"github.com/mailstepcz/serr"
 	"github.com/opensearch-project/opensearch-go/v4"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	requestsigner "github.com/opensearch-project/opensearch-go/v4/signer/awsv2"
+
+	"github.com/mailstepcz/pointer"
+	"github.com/mailstepcz/serr"
 )
 
 var (
@@ -25,6 +27,14 @@ var (
 	ErrOpensearchBadRequest = errors.New("OpenSearch bad request")
 	// ErrDocumentNotFound signifies that no document was found.
 	ErrDocumentNotFound = errors.New("document not found")
+
+	// ErrScrollDeleteFailed represents an error from OpenSearch that scroll delete request was not successful.
+	ErrScrollDeleteFailed = errors.New("OpenSearch scroll delete request failed")
+	// ErrScrollNotFreed represents an error from OpenSearch when scroll delete request was
+	// successful, but requested scroll was not freed.
+	ErrScrollNotFreed = errors.New("OpenSearch scroll was not freed")
+	// ErrScrollNotDefined OpenSearch scrollID is not defined.
+	ErrScrollNotDefined = errors.New("OpenSearch scrollID is not defined")
 )
 
 // NewClient creates a new OpenSearch client.
@@ -225,16 +235,197 @@ func Get[T any](ctx context.Context, cl *opensearch.Client, index, id string) (*
 // Search searches for documents.
 // The orderBy argument is the column by which to order the results. A hyphen at its beginning signifies descending order.
 func Search[T any](ctx context.Context, cl *opensearch.Client, index string, expr Expr, orderBy string, pag *Pagination) ([]IDedDocument[T], int, error) {
-	maps, err := expr.Map(OpenSearch)
+	query, err := buildQuery(expr, orderBy, pag)
 	if err != nil {
 		return nil, 0, err
+	}
+
+	b, err := json.Marshal(query)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	content := bytes.NewReader(b)
+	req := opensearchapi.SearchReq{
+		Indices: []string{index},
+		Body:    content,
+		Params:  opensearchapi.SearchParams{},
+	}
+	var osResp opensearchapi.SearchResp
+	resp, err := cl.Do(ctx, req, &osResp)
+	if err != nil {
+		return nil, 0, err
+	}
+	if resp.IsError() {
+		return nil, 0, osError(resp)
+	}
+
+	total := osResp.Hits.Total.Value
+
+	docs, err := mapDocs[T](osResp.Hits.Hits)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return docs, total, nil
+}
+
+// Scroll starts new scroll on given index.
+func Scroll[T any](ctx context.Context, cl *opensearch.Client, index string, expr Expr, orderBy string, size int, scrollWindow time.Duration) (*Scroller[T], error) {
+	res, err := StartScroll[T](ctx, cl, index, expr, orderBy, size, scrollWindow)
+	if err != nil {
+		return nil, err
+	}
+	return newScroller(res, cl, scrollWindow), nil
+}
+
+// StartScroll starts new scroll that will returns results in batches of [size].
+// Scroll is stable, and will be stable for given [ScrollWindow].
+// When scroll is completed [StopScroll] to free up resources otherwise resources.
+func StartScroll[T any](ctx context.Context, cl *opensearch.Client, index string, expr Expr, orderBy string, size int, scrollWindow time.Duration) (*ScrollResponse[T], error) {
+	query, err := buildQuery(expr, orderBy, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	query.Size = &size
+
+	b, err := json.Marshal(query)
+	if err != nil {
+		return nil, err
+	}
+
+	content := bytes.NewReader(b)
+	req := opensearchapi.SearchReq{
+		Indices: []string{index},
+		Body:    content,
+		Params: opensearchapi.SearchParams{
+			Scroll: scrollWindow,
+		},
+	}
+	var osResponse opensearchapi.SearchResp
+	resp, err := cl.Do(ctx, req, &osResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.IsError() {
+		return nil, osError(resp)
+	}
+
+	if osResponse.ScrollID == nil {
+		return nil, ErrScrollNotDefined
+	}
+
+	total := osResponse.Hits.Total.Value
+
+	docs, err := mapDocs[T](osResponse.Hits.Hits)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ScrollResponse[T]{
+		Docs:     docs,
+		Total:    total,
+		ScrollID: *osResponse.ScrollID,
+	}, nil
+}
+
+// NextScroll returns next batch of results. New scroll id can be returned.
+// When scroll is completed [StopScroll] to free up resources otherwise resources.
+func NextScroll[T any](ctx context.Context, cl *opensearch.Client, scrollID string, scrollWindow time.Duration) (*ScrollResponse[T], error) {
+	var osResponse opensearchapi.ScrollGetResp
+	resp, err := cl.Do(ctx, opensearchapi.ScrollGetReq{
+		ScrollID: scrollID,
+		Params: opensearchapi.ScrollGetParams{
+			Scroll: scrollWindow,
+		},
+	}, &osResponse)
+	if err != nil {
+		return nil, err
+	}
+	if resp.IsError() {
+		return nil, osError(resp)
+	}
+
+	if osResponse.ScrollID == nil {
+		return nil, ErrScrollNotDefined
+	}
+
+	total := osResponse.Hits.Total.Value
+
+	docs, err := mapDocs[T](osResponse.Hits.Hits)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ScrollResponse[T]{
+		Docs:     docs,
+		ScrollID: *osResponse.ScrollID,
+		Total:    total,
+	}, nil
+
+}
+
+// StopScroll frees up resources tied up to given scroll.
+func StopScroll(ctx context.Context, cl *opensearch.Client, scrollID string) error {
+	var osResponse opensearchapi.ScrollDeleteResp
+	resp, err := cl.Do(ctx, opensearchapi.ScrollDeleteReq{
+		ScrollIDs: []string{scrollID},
+	}, &osResponse)
+	if err != nil {
+		return err
+	}
+	if resp.IsError() {
+		return osError(resp)
+	}
+
+	if !osResponse.Succeeded {
+		return serr.Wrap("", ErrScrollDeleteFailed, serr.String("scrollID", scrollID))
+	}
+
+	if osResponse.NumFreed != 1 {
+		return serr.Wrap("", ErrScrollNotFreed, serr.String("scrollID", scrollID))
+	}
+
+	return nil
+}
+
+func osError(resp *opensearch.Response) error {
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	return serr.Wrap("search failed", ErrOpensearchRequestFailed, serr.Int("statusCode", resp.StatusCode), serr.String("body", string(b)))
+}
+
+func mapDocs[T any](hits []opensearchapi.SearchHit) ([]IDedDocument[T], error) {
+	docs := make([]IDedDocument[T], 0, len(hits))
+	for _, h := range hits {
+		var doc T
+		if err := json.Unmarshal(h.Source, &doc); err != nil {
+			return nil, err
+		}
+		docs = append(docs, IDedDocument[T]{
+			ID:       h.ID,
+			Document: &doc,
+		})
+	}
+
+	return docs, nil
+}
+
+func buildQuery(expr Expr, orderBy string, pag *Pagination) (*searchQuery, error) {
+	maps, err := expr.Map(OpenSearch)
+	if err != nil {
+		return nil, err
 	}
 	if m, ok := maps.(Map); ok {
 		maps = []Map{m} // the "must" attribute shall be an array
 	}
 	arr, ok := maps.([]Map)
 	if !ok {
-		return nil, 0, fmt.Errorf("%w %T", ErrOpensearchBadRequest, maps)
+		return nil, fmt.Errorf("%w %T", ErrOpensearchBadRequest, maps)
 	}
 
 	q := searchQuery{
@@ -243,6 +434,9 @@ func Search[T any](ctx context.Context, cl *opensearch.Client, index string, exp
 				Must: arr,
 			},
 		},
+		Sort: nil,
+		From: nil,
+		Size: nil,
 	}
 	if orderBy != "" {
 		dir := "asc"
@@ -251,7 +445,7 @@ func Search[T any](ctx context.Context, cl *opensearch.Client, index string, exp
 			orderBy = orderBy[1:]
 		}
 		field := orderBy
-		q.Sort = []map[string]interface{}{
+		q.Sort = []map[string]any{
 			{
 				field: map[string]string{
 					"order": dir,
@@ -263,54 +457,8 @@ func Search[T any](ctx context.Context, cl *opensearch.Client, index string, exp
 		q.From = &pag.From
 		q.Size = &pag.Size
 	}
-	b, err := json.Marshal(q)
-	if err != nil {
-		return nil, 0, err
-	}
-	content := bytes.NewReader(b)
-	req := opensearchapi.SearchReq{
-		Indices: []string{index},
-		Body:    content,
-	}
-	var sresp opensearchapi.SearchResp
-	resp, err := cl.Do(ctx, req, &sresp)
-	if err != nil {
-		return nil, 0, err
-	}
-	if resp.IsError() {
-		return nil, 0, osError(resp)
-	}
-	total := sresp.Hits.Total.Value
-	docs := make([]IDedDocument[T], 0, len(sresp.Hits.Hits))
-	for _, h := range sresp.Hits.Hits {
-		var doc T
-		if err := json.Unmarshal(h.Source, &doc); err != nil {
-			return nil, 0, err
-		}
-		docs = append(docs, IDedDocument[T]{
-			ID:       h.ID,
-			Document: &doc,
-		})
-	}
-	return docs, total, nil
-}
 
-func osError(resp *opensearch.Response) error {
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	return serr.Wrap("search failed", ErrOpensearchRequestFailed, serr.Int("statusCode", resp.StatusCode), serr.String("body", string(b)))
-}
-
-func getCredentialProvider(accessKey, secretAccessKey string) aws.CredentialsProviderFunc {
-	return func(ctx context.Context) (aws.Credentials, error) {
-		c := &aws.Credentials{
-			AccessKeyID:     accessKey,
-			SecretAccessKey: secretAccessKey,
-		}
-		return *c, nil
-	}
+	return &q, nil
 }
 
 // Pagination contains the offset and limit for searches.
@@ -330,6 +478,13 @@ type IDedDocument[T any] struct {
 	Document *T
 }
 
+// ScrollResponse represents scroll response.
+type ScrollResponse[T any] struct {
+	Docs     []IDedDocument[T]
+	ScrollID string
+	Total    int
+}
+
 // Convert converts a document conforming to [Convertor] into a domain object.
 func Convert[T any, D any, PD interface {
 	pointer.Pointer[D]
@@ -339,10 +494,10 @@ func Convert[T any, D any, PD interface {
 }
 
 type searchQuery struct {
-	Query searchBool               `json:"query"`
-	Sort  []map[string]interface{} `json:"sort,omitempty"`
-	From  *int                     `json:"from,omitempty"`
-	Size  *int                     `json:"size,omitempty"`
+	Query searchBool       `json:"query"`
+	Sort  []map[string]any `json:"sort,omitempty"`
+	From  *int             `json:"from,omitempty"`
+	Size  *int             `json:"size,omitempty"`
 }
 
 type searchBool struct {
@@ -350,7 +505,7 @@ type searchBool struct {
 }
 
 type searchMust struct {
-	Must interface{} `json:"must"`
+	Must any `json:"must"`
 }
 
 // UpdateOption allows customization of Update behavior.

@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/mailstepcz/serr"
-	"github.com/opensearch-project/opensearch-go/v4"
-	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"io"
 	"net/http"
+
+	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
+
+	"github.com/mailstepcz/serr"
 )
 
 var (
@@ -67,7 +69,7 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 
 	if resp.IsError() {
 		return osError(resp)
@@ -108,7 +110,7 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation
 func buildBulkBody[T any](ops []BulkOperation[T], w io.Writer) error {
 	encoder := json.NewEncoder(w)
 	for _, op := range ops {
-		if err := encoder.Encode(map[string]interface{}{
+		if err := encoder.Encode(map[string]any{
 			string(op.OperationType): map[string]string{
 				"_index": op.Index,
 				"_id":    op.ID,
