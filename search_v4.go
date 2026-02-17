@@ -269,6 +269,15 @@ func Search[T any](ctx context.Context, cl *opensearch.Client, index string, exp
 	return docs, total, nil
 }
 
+// Scroll starts new scroll on given index.
+func Scroll[T any](ctx context.Context, cl *opensearch.Client, index string, expr Expr, orderBy string, size int, scrollWindow time.Duration) (*Scroller[T], error) {
+	res, err := StartScroll[T](ctx, cl, index, expr, orderBy, size, scrollWindow)
+	if err != nil {
+		return nil, err
+	}
+	return newScroller(res, cl, scrollWindow), nil
+}
+
 // StartScroll starts new scroll that will returns results in batches of [size].
 // Scroll is stable, and will be stable for given [ScrollWindow].
 // When scroll is completed [StopScroll] to free up resources otherwise resources.
@@ -321,9 +330,9 @@ func StartScroll[T any](ctx context.Context, cl *opensearch.Client, index string
 	}, nil
 }
 
-// Scroll returns next batch of results. New scroll id can be returned.
+// NextScroll returns next batch of results. New scroll id can be returned.
 // When scroll is completed [StopScroll] to free up resources otherwise resources.
-func Scroll[T any](ctx context.Context, cl *opensearch.Client, scrollID string, scrollWindow time.Duration) (*ScrollResponse[T], error) {
+func NextScroll[T any](ctx context.Context, cl *opensearch.Client, scrollID string, scrollWindow time.Duration) (*ScrollResponse[T], error) {
 	var osResponse opensearchapi.ScrollGetResp
 	resp, err := cl.Do(ctx, opensearchapi.ScrollGetReq{
 		ScrollID: scrollID,
