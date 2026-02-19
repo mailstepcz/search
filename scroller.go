@@ -74,7 +74,8 @@ func (s *Scroller[T]) Docs() []IDedDocument[T] {
 		panic("docs is an empty array, cannot access documents from an empty array")
 	}
 
-	var results []IDedDocument[T]
+	// nolint:makezero
+	results := make([]IDedDocument[T], len(s.docs))
 	copy(results, s.docs)
 	s.docs = nil
 	s.returned += len(results)
