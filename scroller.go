@@ -68,6 +68,20 @@ func (s *Scroller[T]) Doc() IDedDocument[T] {
 	return doc
 }
 
+// Docs returns all docs in current loaded batch.
+func (s *Scroller[T]) Docs() []IDedDocument[T] {
+	if len(s.docs) == 0 {
+		panic("docs is an empty array, cannot access documents from an empty array")
+	}
+
+	var results []IDedDocument[T]
+	copy(results, s.docs)
+	s.docs = nil
+	s.returned += len(results)
+
+	return results
+}
+
 // Error returns an error if error has occurred during the scrolling.
 func (s *Scroller[T]) Error() error {
 	return s.err
