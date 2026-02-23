@@ -70,10 +70,6 @@ func (s *Scroller[T]) Doc() IDedDocument[T] {
 
 // Docs returns all docs in current loaded batch.
 func (s *Scroller[T]) Docs() []IDedDocument[T] {
-	if len(s.docs) == 0 {
-		panic("docs is an empty array, cannot access documents from an empty array")
-	}
-
 	// nolint:makezero
 	results := make([]IDedDocument[T], len(s.docs))
 	copy(results, s.docs)
