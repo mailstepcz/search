@@ -27,6 +27,8 @@ var (
 	ErrOpensearchBadRequest = errors.New("OpenSearch bad request")
 	// ErrDocumentNotFound signifies that no document was found.
 	ErrDocumentNotFound = errors.New("document not found")
+	// ErrDocumentHasNewerVersion document is already present in the index and document version is lover than the provided document.
+	ErrDocumentHasNewerVersion = errors.New("document cannot be indexed, document has a newer version")
 
 	// ErrScrollDeleteFailed represents an error from OpenSearch that scroll delete request was not successful.
 	ErrScrollDeleteFailed = errors.New("OpenSearch scroll delete request failed")
@@ -59,17 +61,17 @@ func NewAWSClient(ctx context.Context, url string, awsCfg aws.Config) (*opensear
 }
 
 // Index indexes a document.
-func Index[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T) error {
-	return indexDoc(ctx, cl, index, id, doc, nil)
+func Index[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T, params ...IndexParam) error {
+	return indexDoc(ctx, cl, index, id, doc, params...)
 }
 
 // IndexWithRefresh indexes a document with refresh = true parameter.
 // https://opensearch.org/docs/latest/api-reference/document-apis/index-document/#query-parameters
-func IndexWithRefresh[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T) error {
-	return indexDoc(ctx, cl, index, id, doc, &opensearchapi.IndexParams{Refresh: "true"})
+func IndexWithRefresh[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T, params ...IndexParam) error {
+	return indexDoc(ctx, cl, index, id, doc, append(params, WithIndexParamRefresh(RefreshTypeTrue))...)
 }
 
-func indexDoc[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T, params *opensearchapi.IndexParams) error {
+func indexDoc[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T, params ...IndexParam) error {
 	b, err := json.Marshal(doc)
 	if err != nil {
 		return err
@@ -80,8 +82,12 @@ func indexDoc[T any](ctx context.Context, cl *opensearch.Client, index, id strin
 		Body:       bytes.NewReader(b),
 	}
 
-	if params != nil {
-		req.Params = *params
+	if len(params) != 0 {
+		var indexParams opensearchapi.IndexParams
+		for _, param := range params {
+			param(&indexParams)
+		}
+		req.Params = indexParams
 	}
 
 	resp, err := cl.Do(ctx, req, nil)
@@ -89,6 +95,9 @@ func indexDoc[T any](ctx context.Context, cl *opensearch.Client, index, id strin
 		return err
 	}
 	if resp.IsError() {
+		if resp.StatusCode == http.StatusConflict {
+			return errors.Join(ErrDocumentHasNewerVersion, osError(resp))
+		}
 		return osError(resp)
 	}
 	return nil
@@ -168,6 +177,9 @@ func updateDoc(ctx context.Context, cl *opensearch.Client, index, id string, b [
 	if resp.IsError() {
 		if resp.StatusCode == http.StatusNotFound {
 			return errors.Join(ErrDocumentNotFound, osError(resp))
+		}
+		if resp.StatusCode == http.StatusConflict {
+			return errors.Join(ErrDocumentHasNewerVersion, osError(resp))
 		}
 		return osError(resp)
 	}
