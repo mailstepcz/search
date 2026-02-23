@@ -27,6 +27,8 @@ var (
 	ErrOpensearchBadRequest = errors.New("OpenSearch bad request")
 	// ErrDocumentNotFound signifies that no document was found.
 	ErrDocumentNotFound = errors.New("document not found")
+	// ErrDocumentHasNewerVersion document is already present in the index and document version is lover than the provided document.
+	ErrDocumentHasNewerVersion = errors.New("document cannot be indexed, document has a newer version")
 
 	// ErrScrollDeleteFailed represents an error from OpenSearch that scroll delete request was not successful.
 	ErrScrollDeleteFailed = errors.New("OpenSearch scroll delete request failed")
@@ -93,6 +95,9 @@ func indexDoc[T any](ctx context.Context, cl *opensearch.Client, index, id strin
 		return err
 	}
 	if resp.IsError() {
+		if resp.StatusCode == http.StatusConflict {
+			return errors.Join(ErrDocumentHasNewerVersion, osError(resp))
+		}
 		return osError(resp)
 	}
 	return nil
@@ -172,6 +177,9 @@ func updateDoc(ctx context.Context, cl *opensearch.Client, index, id string, b [
 	if resp.IsError() {
 		if resp.StatusCode == http.StatusNotFound {
 			return errors.Join(ErrDocumentNotFound, osError(resp))
+		}
+		if resp.StatusCode == http.StatusConflict {
+			return errors.Join(ErrDocumentHasNewerVersion, osError(resp))
 		}
 		return osError(resp)
 	}
