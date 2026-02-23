@@ -68,6 +68,17 @@ func (s *Scroller[T]) Doc() IDedDocument[T] {
 	return doc
 }
 
+// Docs returns all docs in current loaded batch.
+func (s *Scroller[T]) Docs() []IDedDocument[T] {
+	// nolint:makezero
+	results := make([]IDedDocument[T], len(s.docs))
+	copy(results, s.docs)
+	s.docs = nil
+	s.returned += len(results)
+
+	return results
+}
+
 // Error returns an error if error has occurred during the scrolling.
 func (s *Scroller[T]) Error() error {
 	return s.err
