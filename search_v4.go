@@ -76,10 +76,18 @@ func indexDoc[T any](ctx context.Context, cl *opensearch.Client, index, id strin
 	if err != nil {
 		return err
 	}
+
 	req := opensearchapi.IndexReq{
 		Index:      index,
 		DocumentID: id,
 		Body:       bytes.NewReader(b),
+	}
+
+	if d, ok := any(doc).(VersionedDocument); ok {
+		params = append(params,
+			WithIndexParamVersion(d.Version()),
+			WithIndexParamVersionType(d.VersionType()),
+		)
 	}
 
 	if len(params) != 0 {
