@@ -20,8 +20,18 @@ func (p KVPair) String() string {
 	return fmt.Sprintf("%s: %v", p.Key, p.Value)
 }
 
+// appendJSONString appends a JSON-encoded string (with quotes) to b.
+// unlike strconv.AppendQuote, control characters are encoded as \uXXXX (valid JSON).
+func appendJSONString(b []byte, s string) []byte {
+	data, err := json.Marshal(s)
+	if err != nil {
+		panic(fmt.Sprintf("search: marshal string: %v", err))
+	}
+	return append(b, data...)
+}
+
 func (p KVPair) appendJSON(b []byte) []byte {
-	b = strconv.AppendQuote(b, p.Key)
+	b = appendJSONString(b, p.Key)
 	b = append(b, ':')
 	return appendValue(b, p.Value)
 }
@@ -49,11 +59,11 @@ func appendValue(b []byte, x any) []byte {
 	case float64:
 		return strconv.AppendFloat(b, x, 'e', -1, 64)
 	case string:
-		return strconv.AppendQuote(b, x)
+		return appendJSONString(b, x)
 	case uuid.UUID:
-		return strconv.AppendQuote(b, x.String())
+		return appendJSONString(b, x.String())
 	case time.Time:
-		return strconv.AppendQuote(b, x.Format(time.RFC3339))
+		return appendJSONString(b, x.Format(time.RFC3339))
 	case []uuid.UUID:
 		return appendSlice(b, x)
 	case []string:
