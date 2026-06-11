@@ -484,7 +484,7 @@ func buildQuery(expr Expr, orderBy string, pag *Pagination) (*searchQuery, error
 	if pag != nil {
 		if pag.From+pag.Size > MaxResultWindow {
 			return nil, serr.Wrap("", ErrResultWindowExceeded,
-				serr.Int("from", pag.From),
+				serr.Int("fromOffset", pag.From),
 				serr.Int("size", pag.Size),
 				serr.Int("maxResultWindow", MaxResultWindow))
 		}
