@@ -1,7 +1,6 @@
 package search
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,7 +27,7 @@ func TestBuildQueryResultWindow(t *testing.T) {
 			_, err := buildQuery(expr, "", tt.pag)
 			if tt.wantErr {
 				req.Error(err)
-				req.True(errors.Is(err, ErrResultWindowExceeded))
+				req.ErrorIs(err, ErrResultWindowExceeded)
 			} else {
 				req.NoError(err)
 			}
