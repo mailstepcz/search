@@ -33,6 +33,15 @@ type BulkResult struct {
 	Items []BulkItemResult
 }
 
+// Err returns all per-item errors joined. Callers use errors.Is to classify expected sentinels.
+func (r *BulkResult) Err() error {
+	var errs error
+	for _, it := range r.Items {
+		errs = errors.Join(errs, it.Error)
+	}
+	return errs
+}
+
 // BulkOperationType represents the bulk operation type.
 // https://opensearch.org/docs/latest/api-reference/document-apis/bulk/#request-body
 type BulkOperationType string
