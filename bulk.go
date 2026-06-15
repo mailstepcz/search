@@ -19,6 +19,20 @@ var (
 	ErrBulkItemError = errors.New("bulk item error")
 )
 
+// BulkItemResult holds the classified outcome of one non-success bulk item.
+// Error wraps one of the package sentinel errors (ErrDocumentHasNewerVersion,
+// ErrDocumentNotFound, ErrBulkItemError) so callers can branch with errors.Is.
+type BulkItemResult struct {
+	ID    string
+	Error error
+}
+
+// BulkResult holds per-item outcomes for all non-success items in a bulk operation.
+// Succeeded items are omitted. BulkResult is always non-nil when the returned error is nil.
+type BulkResult struct {
+	Items []BulkItemResult
+}
+
 // BulkOperationType represents the bulk operation type.
 // https://opensearch.org/docs/latest/api-reference/document-apis/bulk/#request-body
 type BulkOperationType string
@@ -40,20 +54,22 @@ type BulkOperation[T any] struct {
 }
 
 // Bulk sends a bulk request with the specified ops.
-func Bulk[T any](ctx context.Context, cl *opensearch.Client, docs []BulkOperation[T]) error {
+// Returns a *BulkResult with per-item outcomes for all non-success items; error is non-nil only on request-level failure.
+func Bulk[T any](ctx context.Context, cl *opensearch.Client, docs []BulkOperation[T]) (*BulkResult, error) {
 	return bulk(ctx, cl, docs, nil)
 }
 
 // BulkWithRefresh sends a bulk request with the specified ops and refresh = true parameter.
+// Returns a *BulkResult with per-item outcomes for all non-success items; error is non-nil only on request-level failure.
 // https://opensearch.org/docs/latest/api-reference/document-apis/bulk/#query-parameters
-func BulkWithRefresh[T any](ctx context.Context, cl *opensearch.Client, docs []BulkOperation[T]) error {
+func BulkWithRefresh[T any](ctx context.Context, cl *opensearch.Client, docs []BulkOperation[T]) (*BulkResult, error) {
 	return bulk(ctx, cl, docs, &opensearchapi.BulkParams{Refresh: "true"})
 }
 
-func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation[T], params *opensearchapi.BulkParams) error {
+func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation[T], params *opensearchapi.BulkParams) (*BulkResult, error) {
 	var buf bytes.Buffer
 	if err := buildBulkBody(ops, &buf); err != nil {
-		return err
+		return nil, err
 	}
 
 	req := opensearchapi.BulkReq{
@@ -67,47 +83,42 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation
 	var bulkResponse opensearchapi.BulkResp
 	resp, err := cl.Do(ctx, req, &bulkResponse)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close() // nolint:errcheck
 
 	if resp.IsError() {
-		return osError(resp)
+		return nil, osError(resp)
 	}
 
+	var result BulkResult
 	if bulkResponse.Errors && bulkResponse.Items != nil {
-		var errs error
 		for _, items := range bulkResponse.Items {
 			for _, item := range items {
 				if item.Error == nil {
 					continue
 				}
 
-				itemErr := ErrBulkItemError
+				sentinel := ErrBulkItemError
 				switch item.Status {
-				case http.StatusNotFound:
-					itemErr = ErrDocumentNotFound
 				case http.StatusConflict:
-					itemErr = ErrDocumentHasNewerVersion
+					sentinel = ErrDocumentHasNewerVersion
+				case http.StatusNotFound:
+					sentinel = ErrDocumentNotFound
 				}
 
-				errs = errors.Join(errs, serr.Wrap(
-					"",
-					itemErr,
-					serr.String("id", item.ID),
-					serr.String("index", item.Index),
-					serr.String("type", item.Error.Type),
-					serr.String("reason", item.Error.Reason),
-					serr.String("causeType", item.Error.Cause.Type),
-					serr.String("causeReason", item.Error.Cause.Reason),
-					serr.String("status", http.StatusText(item.Status)),
-				))
+				result.Items = append(result.Items, BulkItemResult{
+					ID: item.ID,
+					Error: serr.Wrap("bulk item failed", sentinel,
+						serr.String("index", item.Index),
+						serr.String("reason", item.Error.Reason),
+					),
+				})
 			}
 		}
-		return errs
 	}
 
-	return nil
+	return &result, nil
 }
 
 func buildBulkBody[T any](ops []BulkOperation[T], w io.Writer) error {
