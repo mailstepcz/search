@@ -86,6 +86,8 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation
 				itemErr := ErrBulkItemError
 				if item.Status == http.StatusNotFound {
 					itemErr = ErrDocumentNotFound
+				} else if item.Status == http.StatusConflict {
+					itemErr = ErrDocumentHasNewerVersion
 				}
 
 				errs = errors.Join(errs, serr.Wrap(
