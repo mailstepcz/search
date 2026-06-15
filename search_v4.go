@@ -20,9 +20,17 @@ import (
 	"github.com/mailstepcz/serr"
 )
 
+// MaxResultWindow is OpenSearch's default index.max_result_window. Regular searches
+// cannot retrieve results past this position (from + size). Use scrolling for deeper
+// traversal.
+const MaxResultWindow = 10000
+
 var (
 	// ErrOpensearchRequestFailed represents an error from the Opensearch client.
 	ErrOpensearchRequestFailed = errors.New("OpenSearch error")
+	// ErrResultWindowExceeded signifies that the requested pagination window
+	// (from + size) exceeds MaxResultWindow and cannot be served by a regular search.
+	ErrResultWindowExceeded = errors.New("OpenSearch result window exceeded")
 	// ErrOpensearchBadRequest signifies that a JSON request for Opensearch is ill-formed.
 	ErrOpensearchBadRequest = errors.New("OpenSearch bad request")
 	// ErrDocumentNotFound signifies that no document was found.
@@ -474,6 +482,12 @@ func buildQuery(expr Expr, orderBy string, pag *Pagination) (*searchQuery, error
 		}
 	}
 	if pag != nil {
+		if pag.From+pag.Size > MaxResultWindow {
+			return nil, serr.Wrap("", ErrResultWindowExceeded,
+				serr.Int("fromOffset", pag.From),
+				serr.Int("size", pag.Size),
+				serr.Int("maxResultWindow", MaxResultWindow))
+		}
 		q.From = &pag.From
 		q.Size = &pag.Size
 	}
