@@ -124,11 +124,18 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation
 func buildBulkBody[T any](ops []BulkOperation[T], w io.Writer) error {
 	encoder := json.NewEncoder(w)
 	for _, op := range ops {
+		meta := map[string]any{
+			"_index": op.Index,
+			"_id":    op.ID,
+		}
+		if op.OperationType != OpDelete && op.Doc != nil {
+			if vd, ok := any(op.Doc).(VersionedDocument); ok {
+				meta["version"] = vd.Version()
+				meta["version_type"] = string(vd.VersionType())
+			}
+		}
 		if err := encoder.Encode(map[string]any{
-			string(op.OperationType): map[string]string{
-				"_index": op.Index,
-				"_id":    op.ID,
-			},
+			string(op.OperationType): meta,
 		}); err != nil {
 			return serr.Wrap("marshalling meta JSON", err, serr.String("index", op.Index), serr.String("id", op.ID))
 		}

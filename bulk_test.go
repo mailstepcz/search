@@ -7,6 +7,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type versionedDoc struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+func (d *versionedDoc) Version() int             { return 1234 }
+func (d *versionedDoc) VersionType() VersionType { return VersionTypeExternalGTE }
+
 func Test_buildBulkBody(t *testing.T) {
 	type testCase[T any] struct {
 		name string
@@ -104,4 +112,35 @@ func Test_buildBulkBody(t *testing.T) {
 			req.Equal(tt.want, b.Bytes())
 		})
 	}
+}
+
+func Test_buildBulkBody_versionedDocument(t *testing.T) {
+	req := require.New(t)
+
+	ops := []BulkOperation[versionedDoc]{
+		{
+			OperationType: OpIndex,
+			ID:            "ID-1",
+			Index:         "test-index",
+			Doc:           &versionedDoc{ID: "1", Name: "Versioned Doc"},
+		},
+		{
+			OperationType: OpDelete,
+			ID:            "ID-2",
+			Index:         "test-index",
+		},
+	}
+
+	// index op: action metadata must include version and version_type (keys sorted alphabetically).
+	// delete op: Doc is nil — no version fields.
+	want := []byte(
+		`{"index":{"_id":"ID-1","_index":"test-index","version":1234,"version_type":"external_gte"}}` + "\n" +
+			`{"id":"1","name":"Versioned Doc"}` + "\n" +
+			`{"delete":{"_id":"ID-2","_index":"test-index"}}` + "\n",
+	)
+
+	var b bytes.Buffer
+	err := buildBulkBody(ops, &b)
+	req.NoError(err)
+	req.Equal(want, b.Bytes())
 }
