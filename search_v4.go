@@ -106,7 +106,7 @@ func indexDoc[T any](ctx context.Context, cl *opensearch.Client, index, id strin
 		req.Params = indexParams
 	}
 
-	resp, err := cl.Do(ctx, req, nil)
+	resp, err := opensearch.Do(ctx, cl, http.MethodPut, req, new(opensearch.NoBody))
 	if err != nil {
 		return err
 	}
@@ -186,7 +186,7 @@ func updateDoc(ctx context.Context, cl *opensearch.Client, index, id string, b [
 		req.Params = *params
 	}
 
-	resp, err := cl.Do(ctx, req, nil)
+	resp, err := opensearch.Do(ctx, cl, http.MethodPost, req, new(opensearch.NoBody))
 	if err != nil {
 		return err
 	}
@@ -223,7 +223,7 @@ func deleteDoc(ctx context.Context, cl *opensearch.Client, index, id string, par
 		req.Params = *params
 	}
 
-	resp, err := cl.Do(ctx, req, nil)
+	resp, err := opensearch.Do(ctx, cl, http.MethodDelete, req, new(opensearch.NoBody))
 	if err != nil {
 		return err
 	}
@@ -243,7 +243,7 @@ func Get[T any](ctx context.Context, cl *opensearch.Client, index, id string) (*
 		DocumentID: id,
 	}
 	var sresp opensearchapi.DocumentGetResp
-	resp, err := cl.Do(ctx, req, &sresp)
+	resp, err := opensearch.Do(ctx, cl, http.MethodGet, req, &sresp)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +280,7 @@ func Search[T any](ctx context.Context, cl *opensearch.Client, index string, exp
 		Params:  opensearchapi.SearchParams{},
 	}
 	var osResp opensearchapi.SearchResp
-	resp, err := cl.Do(ctx, req, &osResp)
+	resp, err := opensearch.Do(ctx, cl, http.MethodPost, req, &osResp)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -332,7 +332,7 @@ func StartScroll[T any](ctx context.Context, cl *opensearch.Client, index string
 		},
 	}
 	var osResponse opensearchapi.SearchResp
-	resp, err := cl.Do(ctx, req, &osResponse)
+	resp, err := opensearch.Do(ctx, cl, http.MethodPost, req, &osResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +363,7 @@ func StartScroll[T any](ctx context.Context, cl *opensearch.Client, index string
 // When scroll is completed [StopScroll] to free up resources otherwise resources.
 func NextScroll[T any](ctx context.Context, cl *opensearch.Client, scrollID string, scrollWindow time.Duration) (*ScrollResponse[T], error) {
 	var osResponse opensearchapi.ScrollGetResp
-	resp, err := cl.Do(ctx, opensearchapi.ScrollGetReq{
+	resp, err := opensearch.Do(ctx, cl, http.MethodPost, opensearchapi.ScrollGetReq{
 		ScrollID: scrollID,
 		Params: opensearchapi.ScrollGetParams{
 			Scroll: scrollWindow,
@@ -398,7 +398,7 @@ func NextScroll[T any](ctx context.Context, cl *opensearch.Client, scrollID stri
 // StopScroll frees up resources tied up to given scroll.
 func StopScroll(ctx context.Context, cl *opensearch.Client, scrollID string) error {
 	var osResponse opensearchapi.ScrollDeleteResp
-	resp, err := cl.Do(ctx, opensearchapi.ScrollDeleteReq{
+	resp, err := opensearch.Do(ctx, cl, http.MethodDelete, opensearchapi.ScrollDeleteReq{
 		ScrollIDs: []string{scrollID},
 	}, &osResponse)
 	if err != nil {
