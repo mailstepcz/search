@@ -1,11 +1,11 @@
 module github.com/mailstepcz/search
 
-go 1.25.0
+go 1.26.0
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.41.5
+	github.com/aws/aws-sdk-go-v2 v1.42.1
 	github.com/mailstepcz/serr v0.1.7
-	github.com/opensearch-project/opensearch-go/v4 v4.6.0
+	github.com/opensearch-project/opensearch-go/v4 v4.7.2
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -13,10 +13,11 @@ require (
 	github.com/mailstepcz/go-utils v0.1.48 // indirect
 	github.com/oklog/ulid/v2 v2.1.1 // indirect
 	golang.org/x/net v0.52.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
 )
 
 require (
-	github.com/aws/smithy-go v1.24.2 // indirect
+	github.com/aws/smithy-go v1.27.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/uuid v1.6.0
 	github.com/mailstepcz/pointer v0.1.1

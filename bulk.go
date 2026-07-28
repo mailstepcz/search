@@ -89,45 +89,44 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation
 		req.Params = *params
 	}
 
-	var bulkResponse opensearchapi.BulkResp
-	resp, err := cl.Do(ctx, req, &bulkResponse)
+	// wrapping the client per call is cheap (no I/O); scoped to Bulk so Index/Update/Delete/Search
+	// keep using the raw client and their existing error handling untouched
+	apiClient := opensearchapi.NewFromClientWithErrors(cl)
+	resp, err := apiClient.Bulk(ctx, req)
 	if err != nil {
+		if partial, ok := errors.AsType[*opensearchapi.PartialBulkError](err); ok {
+			return buildBulkResult(partial), nil
+		}
+
+		if insp := resp.Inspect(); insp.Response != nil && insp.Response.IsError() {
+			return nil, osError(insp.Response)
+		}
 		return nil, err
 	}
-	defer resp.Body.Close() // nolint:errcheck
 
-	if resp.IsError() {
-		return nil, osError(resp)
-	}
+	return &BulkResult{}, nil
+}
 
+func buildBulkResult(partial *opensearchapi.PartialBulkError) *BulkResult {
 	var result BulkResult
-	if bulkResponse.Errors && bulkResponse.Items != nil {
-		for _, items := range bulkResponse.Items {
-			for _, item := range items {
-				if item.Error == nil {
-					continue
-				}
-
-				sentinel := ErrBulkItemError
-				switch item.Status {
-				case http.StatusConflict:
-					sentinel = ErrDocumentHasNewerVersion
-				case http.StatusNotFound:
-					sentinel = ErrDocumentNotFound
-				}
-
-				result.Items = append(result.Items, BulkItemResult{
-					ID: item.ID,
-					Error: serr.Wrap("bulk item failed", sentinel,
-						serr.String("index", item.Index),
-						serr.String("reason", item.Error.Reason),
-					),
-				})
-			}
+	for _, item := range partial.FailedItems {
+		sentinel := ErrBulkItemError
+		switch item.Status {
+		case http.StatusConflict:
+			sentinel = ErrDocumentHasNewerVersion
+		case http.StatusNotFound:
+			sentinel = ErrDocumentNotFound
 		}
-	}
 
-	return &result, nil
+		result.Items = append(result.Items, BulkItemResult{
+			ID: item.ID,
+			Error: serr.Wrap("bulk item failed", sentinel,
+				serr.String("index", item.Index),
+				serr.String("reason", item.Error.Reason),
+			),
+		})
+	}
+	return &result
 }
 
 func buildBulkBody[T any](ops []BulkOperation[T], w io.Writer) error {
