@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
+	googleuuid "github.com/google/uuid"
 )
 
 // KVPair is a key-value pair.
@@ -62,9 +63,14 @@ func appendValue(b []byte, x any) []byte {
 		return appendJSONString(b, x)
 	case uuid.UUID:
 		return appendJSONString(b, x.String())
+	// TODO(MAWIGO-1100): drop the google cases once misc/filter and the proto clients emit stdlib uuids
+	case googleuuid.UUID:
+		return appendJSONString(b, x.String())
 	case time.Time:
 		return appendJSONString(b, x.Format(time.RFC3339))
 	case []uuid.UUID:
+		return appendSlice(b, x)
+	case []googleuuid.UUID:
 		return appendSlice(b, x)
 	case []string:
 		return appendSlice(b, x)
