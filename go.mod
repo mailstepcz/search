@@ -4,7 +4,6 @@ go 1.27.1
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.47.0
-	github.com/google/uuid v1.6.0
 	github.com/mailstepcz/pointer v0.1.1
 	github.com/mailstepcz/serr v0.1.9
 	github.com/opensearch-project/opensearch-go/v4 v4.7.3
