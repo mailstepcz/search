@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,12 +27,13 @@ func TestMapJSON(t *testing.T) {
 		}}},
 		{"h", []string{"hello world"}},
 		{"k", []uuid.UUID{uuid.MustParse("52eab613-58a6-498c-8947-781eeba0011d")}},
+		{"l", uuid.MustParse("6f2a1b0e-4d3c-7a91-b8e5-2c9d0f1a3b47")},
 		{"j", "foo\u001dbar"},
 	}}
 
 	b := m.JSON()
 
-	req.JSONEq(`{"a":1234,"b":1.234e+01,"c":true,"d":"abcdefgh","e":"0002-01-01T01:00:00Z","f":["abcd",1234],"g":{"a":1,"b":"2"},"h":["hello world"],"k":["52eab613-58a6-498c-8947-781eeba0011d"],"j":"foo\u001dbar"}`, string(b))
+	req.JSONEq(`{"a":1234,"b":1.234e+01,"c":true,"d":"abcdefgh","e":"0002-01-01T01:00:00Z","f":["abcd",1234],"g":{"a":1,"b":"2"},"h":["hello world"],"k":["52eab613-58a6-498c-8947-781eeba0011d"],"l":"6f2a1b0e-4d3c-7a91-b8e5-2c9d0f1a3b47","j":"foo\u001dbar"}`, string(b))
 
 	var m2 map[string]any
 	err := json.Unmarshal(b, &m2)
@@ -54,7 +55,7 @@ func TestStrconvAppendQuoteInvalidJSON(t *testing.T) {
 	var v any
 	err := json.Unmarshal(quoted, &v)
 	req.Error(err)
-	req.ErrorContains(err, "invalid character 'x' in string escape code")
+	req.ErrorContains(err, "invalid escape sequence `\\x` in string")
 }
 
 var gr any

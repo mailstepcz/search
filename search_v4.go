@@ -145,7 +145,7 @@ func UpdateWithRefresh[T any](ctx context.Context, cl *opensearch.Client, index,
 	if err != nil {
 		return err
 	}
-	return updateDoc(ctx, cl, index, id, b, &opensearchapi.UpdateParams{Refresh: "true"})
+	return updateDoc(ctx, cl, index, id, b, &opensearchapi.UpdateParams{Refresh: string(RefreshTypeTrue)})
 }
 
 // UpdatePartial updates only specified fields on document.
@@ -172,7 +172,7 @@ func UpdatePartialWithRefresh(ctx context.Context, cl *opensearch.Client, index,
 	if err != nil {
 		return err
 	}
-	return updateDoc(ctx, cl, index, id, b, &opensearchapi.UpdateParams{Refresh: "true"})
+	return updateDoc(ctx, cl, index, id, b, &opensearchapi.UpdateParams{Refresh: string(RefreshTypeTrue)})
 }
 
 func updateDoc(ctx context.Context, cl *opensearch.Client, index, id string, b []byte, params *opensearchapi.UpdateParams) error {
@@ -210,7 +210,7 @@ func Delete(ctx context.Context, cl *opensearch.Client, index, id string) error 
 // DeleteWithRefresh deletes a document with refresh = true parameter.
 // https://opensearch.org/docs/latest/api-reference/document-apis/delete-document/#query-parameters
 func DeleteWithRefresh(ctx context.Context, cl *opensearch.Client, index, id string) error {
-	return deleteDoc(ctx, cl, index, id, &opensearchapi.DocumentDeleteParams{Refresh: "true"})
+	return deleteDoc(ctx, cl, index, id, &opensearchapi.DocumentDeleteParams{Refresh: string(RefreshTypeTrue)})
 }
 
 func deleteDoc(ctx context.Context, cl *opensearch.Client, index, id string, params *opensearchapi.DocumentDeleteParams) error {

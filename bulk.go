@@ -72,7 +72,7 @@ func Bulk[T any](ctx context.Context, cl *opensearch.Client, docs []BulkOperatio
 // Returns a *BulkResult with per-item outcomes for all non-success items; error is non-nil only on request-level failure.
 // https://opensearch.org/docs/latest/api-reference/document-apis/bulk/#query-parameters
 func BulkWithRefresh[T any](ctx context.Context, cl *opensearch.Client, docs []BulkOperation[T]) (*BulkResult, error) {
-	return bulk(ctx, cl, docs, &opensearchapi.BulkParams{Refresh: "true"})
+	return bulk(ctx, cl, docs, &opensearchapi.BulkParams{Refresh: string(RefreshTypeTrue)})
 }
 
 func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation[T], params *opensearchapi.BulkParams) (*BulkResult, error) {

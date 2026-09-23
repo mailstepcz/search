@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"time"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 // KVPair is a key-value pair.

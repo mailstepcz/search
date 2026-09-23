@@ -11,6 +11,13 @@ import (
 	"github.com/mailstepcz/serr"
 )
 
+const (
+	// aliasKey is the json field and log attribute name for an alias.
+	aliasKey = "alias"
+	// indexKey is the json field and log attribute name for an index.
+	indexKey = "index"
+)
+
 var (
 	// ErrAliasNotFound alias not found error.
 	ErrAliasNotFound = errors.New("alias not found")
@@ -31,7 +38,7 @@ type aliasesBody struct {
 func AliasSet(ctx context.Context, client *opensearchapi.Client, index, alias string) error {
 	body := aliasesBody{
 		Actions: []mapAny{
-			{"add": mapAny{"index": index, "alias": alias}},
+			{"add": mapAny{indexKey: index, aliasKey: alias}},
 		}}
 
 	b, err := json.Marshal(body)
@@ -43,11 +50,11 @@ func AliasSet(ctx context.Context, client *opensearchapi.Client, index, alias st
 	aliasesReq.Body = bytes.NewReader(b)
 	resp, err := client.Aliases(ctx, aliasesReq)
 	if err != nil {
-		return serr.Wrap("setting alias", err, serr.String("alias", alias), serr.String("index", index))
+		return serr.Wrap("setting alias", err, serr.String(aliasKey, alias), serr.String(indexKey, index))
 	}
 
 	if !resp.Acknowledged {
-		return serr.New("alias not acknowledged", serr.String("alias", alias), serr.String("index", index))
+		return serr.New("alias not acknowledged", serr.String(aliasKey, alias), serr.String(indexKey, index))
 	}
 
 	return nil
@@ -82,7 +89,7 @@ func AliasGet(ctx context.Context, client *opensearchapi.Client, alias string) (
 func AliasExists(ctx context.Context, client *opensearchapi.Client, alias string) (bool, error) {
 	osAlias, err := AliasGet(ctx, client, alias)
 	if err != nil && !errors.Is(err, ErrAliasNotFound) {
-		return false, serr.Wrap("getting alias", err, serr.String("alias", alias))
+		return false, serr.Wrap("getting alias", err, serr.String(aliasKey, alias))
 	}
 
 	return osAlias != nil, nil
@@ -92,13 +99,13 @@ func AliasExists(ctx context.Context, client *opensearchapi.Client, alias string
 func AliasSwitch(ctx context.Context, client *opensearchapi.Client, alias, index string) error {
 	osAlias, err := AliasGet(ctx, client, alias)
 	if err != nil {
-		return serr.Wrap("getting alias", err, serr.String("alias", alias))
+		return serr.Wrap("getting alias", err, serr.String(aliasKey, alias))
 	}
 
 	body := aliasesBody{
 		Actions: []mapAny{
-			{"add": mapAny{"index": index, "alias": alias}},
-			{"remove": mapAny{"index": osAlias.Index, "alias": alias}},
+			{"add": mapAny{indexKey: index, aliasKey: alias}},
+			{"remove": mapAny{"index": osAlias.Index, aliasKey: alias}},
 		},
 	}
 	b, err := json.Marshal(body)
@@ -108,11 +115,11 @@ func AliasSwitch(ctx context.Context, client *opensearchapi.Client, alias, index
 
 	resp, err := client.Aliases(ctx, opensearchapi.AliasesReq{Body: bytes.NewReader(b)})
 	if err != nil {
-		return serr.Wrap("switching alias", err, serr.String("alias", alias), serr.String("index", index))
+		return serr.Wrap("switching alias", err, serr.String(aliasKey, alias), serr.String(indexKey, index))
 	}
 
 	if !resp.Acknowledged {
-		return serr.New("alias switch not acknowledged", serr.String("alias", alias), serr.String("index", index), serr.String("oldIndex", osAlias.Index))
+		return serr.New("alias switch not acknowledged", serr.String(aliasKey, alias), serr.String(indexKey, index), serr.String("oldIndex", osAlias.Index))
 	}
 
 	return nil
