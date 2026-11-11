@@ -5,6 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
+	"net/http"
+	"slices"
 
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
@@ -62,26 +65,30 @@ func AliasSet(ctx context.Context, client *opensearchapi.Client, index, alias st
 
 // AliasGet returns alias if exists.
 func AliasGet(ctx context.Context, client *opensearchapi.Client, alias string) (*Alias, error) {
-	aliasGetReq := opensearchapi.CatAliasesReq{
-		Aliases: []string{alias},
-	}
-
-	resp, err := client.Cat.Aliases(ctx, &aliasGetReq)
+	// the alias is named as the index too, so a role limited to the alias's indices may read it, unlike _cat/aliases
+	resp, err := client.Indices.Alias.Get(ctx, opensearchapi.AliasGetReq{
+		Indices: []string{alias},
+		Alias:   []string{alias},
+	})
 	if err != nil {
+		if resp != nil && resp.Inspect().Response != nil && resp.Inspect().Response.StatusCode == http.StatusNotFound {
+			return nil, serr.Wrap("alias not found", ErrAliasNotFound, serr.String("aliasName", alias))
+		}
 		return nil, err
 	}
 
-	if len(resp.Aliases) > 1 {
-		return nil, serr.New("unexpected index count for alias", serr.String("aliasName", alias), serr.Any("indices", resp.Aliases))
+	indices := slices.Sorted(maps.Keys(resp.GetIndices()))
+	if len(indices) > 1 {
+		return nil, serr.New("unexpected index count for alias", serr.String("aliasName", alias), serr.Any("indices", indices))
 	}
 
-	if len(resp.Aliases) == 0 {
+	if len(indices) == 0 {
 		return nil, serr.Wrap("alias not found", ErrAliasNotFound, serr.String("aliasName", alias))
 	}
 
 	return &Alias{
 		Name:  alias,
-		Index: resp.Aliases[0].Index,
+		Index: indices[0],
 	}, nil
 }
 
