@@ -102,17 +102,23 @@ func AliasExists(ctx context.Context, client *opensearchapi.Client, alias string
 	return osAlias != nil, nil
 }
 
-// AliasSwitch removes existing alias and adds alias to new index.
+// AliasSwitch moves the alias from the index it is on now to the new index, see [AliasSwitchFrom].
 func AliasSwitch(ctx context.Context, client *opensearchapi.Client, alias, index string) error {
 	osAlias, err := AliasGet(ctx, client, alias)
 	if err != nil {
 		return serr.Wrap("getting alias", err, serr.String(aliasKey, alias))
 	}
 
+	return AliasSwitchFrom(ctx, client, alias, osAlias.Index, index)
+}
+
+// AliasSwitchFrom moves the alias from oldIndex to the new index in one request; it fails when the alias is no longer on oldIndex.
+func AliasSwitchFrom(ctx context.Context, client *opensearchapi.Client, alias, oldIndex, index string) error {
 	body := aliasesBody{
 		Actions: []mapAny{
 			{"add": mapAny{indexKey: index, aliasKey: alias}},
-			{"remove": mapAny{"index": osAlias.Index, aliasKey: alias}},
+			// must_exist fails the whole request instead of only skipping the remove, which would leave the alias on two indices
+			{"remove": mapAny{indexKey: oldIndex, aliasKey: alias, "must_exist": true}},
 		},
 	}
 	b, err := json.Marshal(body)
@@ -122,11 +128,11 @@ func AliasSwitch(ctx context.Context, client *opensearchapi.Client, alias, index
 
 	resp, err := client.Aliases(ctx, opensearchapi.AliasesReq{Body: bytes.NewReader(b)})
 	if err != nil {
-		return serr.Wrap("switching alias", err, serr.String(aliasKey, alias), serr.String(indexKey, index))
+		return serr.Wrap("switching alias", err, serr.String(aliasKey, alias), serr.String(indexKey, index), serr.String("oldIndex", oldIndex))
 	}
 
 	if !resp.Acknowledged {
-		return serr.New("alias switch not acknowledged", serr.String(aliasKey, alias), serr.String(indexKey, index), serr.String("oldIndex", osAlias.Index))
+		return serr.New("alias switch not acknowledged", serr.String(aliasKey, alias), serr.String(indexKey, index), serr.String("oldIndex", oldIndex))
 	}
 
 	return nil
