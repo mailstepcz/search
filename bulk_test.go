@@ -171,36 +171,44 @@ func newFakeClient(t *testing.T, statusCode int, body string) *opensearch.Client
 }
 
 func TestBulk(t *testing.T) {
-	t.Run("partial item failures are classified per status", func(t *testing.T) {
+	t.Run("failed items are classified by their status and error type", func(t *testing.T) {
 		ctx := t.Context()
 		req := require.New(t)
 
+		// item 1 succeeded and item 5, a delete of a missing document, carries no error: neither is a failed item
 		body := `{
 			"took": 3,
 			"errors": true,
 			"items": [
 				{"index": {"_index": "test-index", "_id": "1", "status": 201}},
 				{"index": {"_index": "test-index", "_id": "2", "status": 409, "error": {"type": "version_conflict_engine_exception", "reason": "version conflict"}}},
-				{"delete": {"_index": "test-index", "_id": "3", "status": 404, "error": {"type": "not_found", "reason": "document missing"}}},
-				{"index": {"_index": "test-index", "_id": "4", "status": 400, "error": {"type": "mapper_parsing_exception", "reason": "bad mapping"}}}
+				{"update": {"_index": "test-index", "_id": "3", "status": 404, "error": {"type": "document_missing_exception", "reason": "[3]: document missing", "index": "test-index", "shard": "0", "index_uuid": "zhEER7MWTH2C06NIvkkOiQ"}}},
+				{"delete":{"_index":"zz-no-such-index-b-353730-d","_id":"4","status":404,"error":{"type":"index_not_found_exception","reason":"no such index [zz-no-such-index-b-353730-d]","index":"zz-no-such-index-b-353730-d","resource.id":"zz-no-such-index-b-353730-d","resource.type":"index_expression","index_uuid":"_na_"}}},
+				{"delete": {"_index": "test-index", "_id": "5", "_version": 1, "result": "not_found", "_shards": {"total": 1, "successful": 1, "failed": 0}, "_seq_no": 0, "_primary_term": 1, "status": 404}},
+				{"update": {"_index": "test-index", "_id": "6", "status": 404, "error": {"type": "resource_not_found_exception", "reason": "no such resource"}}},
+				{"index": {"_index": "test-index", "_id": "7", "status": 400, "error": {"type": "mapper_parsing_exception", "reason": "bad mapping"}}},
+				{"update": {"_index": "test-index", "_id": "8", "status": 400, "error": {"type": "document_missing_exception", "reason": "[8]: document missing"}}},
+				{"delete": {"_index": "test-index", "_id": "9", "status": 400, "error": {"type": "index_not_found_exception", "reason": "no such index [test-index]"}}}
 			]
 		}`
-		cl := newFakeClient(t, http.StatusOK, body)
+		want := map[string]error{
+			"2": ErrDocumentHasNewerVersion,
+			"3": ErrDocumentNotFound, // update of a missing document
+			"4": ErrIndexNotFound,    // delete on a missing index
+			"6": ErrBulkItemError,    // another 404
+			"7": ErrBulkItemError,
+			"8": ErrBulkItemError, // a missing document type without the 404
+			"9": ErrBulkItemError, // a missing index type without the 404
+		}
 
-		result, err := Bulk(ctx, cl, []BulkOperation[any]{
+		result, err := Bulk(ctx, newFakeClient(t, http.StatusOK, body), []BulkOperation[any]{
 			{OperationType: OpIndex, ID: "1", Index: "test-index"},
 		})
 		req.NoError(err)
-		req.Len(result.Items, 3)
-
-		byID := make(map[string]BulkItemResult, len(result.Items))
+		req.Len(result.Items, len(want))
 		for _, item := range result.Items {
-			byID[item.ID] = item
+			requireOnlySentinel(t, item.Error, want[item.ID])
 		}
-
-		req.ErrorIs(byID["2"].Error, ErrDocumentHasNewerVersion)
-		req.ErrorIs(byID["3"].Error, ErrDocumentNotFound)
-		req.ErrorIs(byID["4"].Error, ErrBulkItemError)
 	})
 
 	t.Run("no item failures returns an empty result", func(t *testing.T) {

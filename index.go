@@ -43,13 +43,13 @@ func IndexCreate(ctx context.Context, client *opensearchapi.Client, index string
 	return nil
 }
 
-// IndexDelete deletes index and it's content.
+// IndexDelete deletes index and it's content; it returns [ErrIndexNotFound] for a missing index.
 func IndexDelete(ctx context.Context, client *opensearchapi.Client, index string) error {
 	resp, err := client.Indices.Delete(ctx, opensearchapi.IndicesDeleteReq{
 		Indices: []string{index},
 	})
 	if err != nil {
-		return serr.Wrap("deleting index", err, serr.String("index", index))
+		return serr.Wrap("deleting index", withIndexNotFound(err), serr.String("index", index))
 	}
 	if !resp.Acknowledged {
 		return serr.New("index delete not acknowledged", serr.String("index", index))

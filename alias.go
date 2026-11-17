@@ -22,8 +22,6 @@ const (
 	indexKey = "index"
 	// aliasesNotFoundType is the OpenSearch error type of a remove action whose alias is not on the index.
 	aliasesNotFoundType = "aliases_not_found_exception"
-	// indexNotFoundType is the OpenSearch error type of a request on a missing index.
-	indexNotFoundType = "index_not_found_exception"
 )
 
 var (
@@ -44,7 +42,7 @@ type aliasesBody struct {
 	Actions []mapAny `json:"actions"`
 }
 
-// AliasSet sets alias to the index.
+// AliasSet sets alias to the index; it returns [ErrIndexNotFound] for a missing index.
 func AliasSet(ctx context.Context, client *opensearchapi.Client, index, alias string) error {
 	body := aliasesBody{
 		Actions: []mapAny{
@@ -60,7 +58,7 @@ func AliasSet(ctx context.Context, client *opensearchapi.Client, index, alias st
 	aliasesReq.Body = bytes.NewReader(b)
 	resp, err := client.Aliases(ctx, aliasesReq)
 	if err != nil {
-		return serr.Wrap("setting alias", err, serr.String(aliasKey, alias), serr.String(indexKey, index))
+		return serr.Wrap("setting alias", withIndexNotFound(err), serr.String(aliasKey, alias), serr.String(indexKey, index))
 	}
 
 	if !resp.Acknowledged {
@@ -109,7 +107,7 @@ func AliasExists(ctx context.Context, client *opensearchapi.Client, alias string
 	return osAlias != nil, nil
 }
 
-// AliasSwitch moves the alias from the index it is on now to the new index; it returns [ErrAliasNotFound] for a missing alias and [ErrAliasMoved] like [AliasSwitchFrom].
+// AliasSwitch moves the alias from the index it is on now to the new index; it returns [ErrAliasNotFound] for a missing alias and [ErrAliasMoved] and [ErrIndexNotFound] like [AliasSwitchFrom].
 func AliasSwitch(ctx context.Context, client *opensearchapi.Client, alias, index string) error {
 	osAlias, err := AliasGet(ctx, client, alias)
 	if err != nil {
@@ -119,7 +117,7 @@ func AliasSwitch(ctx context.Context, client *opensearchapi.Client, alias, index
 	return AliasSwitchFrom(ctx, client, alias, osAlias.Index, index)
 }
 
-// AliasSwitchFrom moves the alias from oldIndex to the new index in one request; it returns [ErrAliasMoved] when the alias is no longer on oldIndex or oldIndex is gone.
+// AliasSwitchFrom moves the alias from oldIndex to the new index in one request; it returns [ErrAliasMoved] when the alias is no longer on oldIndex or oldIndex is gone, and [ErrIndexNotFound] when the new index is missing.
 func AliasSwitchFrom(ctx context.Context, client *opensearchapi.Client, alias, oldIndex, index string) error {
 	body := aliasesBody{
 		Actions: []mapAny{
@@ -135,7 +133,7 @@ func AliasSwitchFrom(ctx context.Context, client *opensearchapi.Client, alias, o
 
 	resp, err := client.Aliases(ctx, opensearchapi.AliasesReq{Body: bytes.NewReader(b)})
 	if err != nil {
-		return serr.Wrap("switching alias", withAliasMoved(err, oldIndex), serr.String(aliasKey, alias), serr.String(indexKey, index), serr.String("oldIndex", oldIndex))
+		return serr.Wrap("switching alias", aliasSwitchError(err, oldIndex), serr.String(aliasKey, alias), serr.String(indexKey, index), serr.String("oldIndex", oldIndex))
 	}
 
 	if !resp.Acknowledged {
@@ -145,8 +143,8 @@ func AliasSwitchFrom(ctx context.Context, client *opensearchapi.Client, alias, o
 	return nil
 }
 
-// withAliasMoved joins [ErrAliasMoved] to an error reporting that the alias is not on oldIndex or that oldIndex is missing.
-func withAliasMoved(err error, oldIndex string) error {
+// aliasSwitchError joins [ErrAliasMoved] to an error reporting that the alias is not on oldIndex or that oldIndex is missing, and [ErrIndexNotFound] to one reporting that the new index is missing.
+func aliasSwitchError(err error, oldIndex string) error {
 	structErr, ok := errors.AsType[*opensearch.StructError](err)
 	if !ok {
 		return err
@@ -155,5 +153,5 @@ func withAliasMoved(err error, oldIndex string) error {
 		return errors.Join(ErrAliasMoved, err)
 	}
 
-	return err
+	return withIndexNotFound(err)
 }

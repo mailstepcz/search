@@ -49,3 +49,29 @@ func TestIndexExists(t *testing.T) {
 		req.ErrorContains(err, "checking index existence")
 	})
 }
+
+func TestIndexDelete(t *testing.T) {
+	t.Run("the index is missing - should fail", func(t *testing.T) {
+		ctx := t.Context()
+		req := require.New(t)
+
+		cl := newFakeAPIClient(t, func(*http.Request) (int, string) {
+			return http.StatusNotFound, missingIndexBody
+		})
+
+		req.ErrorIs(IndexDelete(ctx, cl, "products-1"), ErrIndexNotFound)
+	})
+
+	t.Run("a forbidden request is not reported as a missing index - should fail", func(t *testing.T) {
+		ctx := t.Context()
+		req := require.New(t)
+
+		cl := newFakeAPIClient(t, func(*http.Request) (int, string) {
+			return http.StatusForbidden, forbiddenBody
+		})
+
+		err := IndexDelete(ctx, cl, "products-1")
+		req.Error(err)
+		req.NotErrorIs(err, ErrIndexNotFound)
+	})
+}
