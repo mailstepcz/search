@@ -13,4 +13,4 @@ a Go wrapper for OpenSearch
 
 - Check the specific sentinel before `ErrOpensearchRequestFailed`, which is part of the not-found and conflict errors too.
 - With `action.auto_create_index` enabled (the OpenSearch default), an index request creates a missing index and succeeds, and an update request creates it and returns `ErrDocumentNotFound`; neither returns `ErrIndexNotFound`. A delete never creates the index.
-- Index and alias calls (`IndexCreate`, `IndexDelete`, `Alias*`) return the error of the opensearch-go client (an `*opensearch.StructError` for a JSON error body), not `ErrOpensearchRequestFailed`; `IndexDelete`, `AliasSet`, `AliasSwitch` and `AliasSwitchFrom` add `ErrIndexNotFound` for a missing index.
+- Index and alias calls (`IndexCreate`, `IndexDelete`, `Alias*`) return the error of the opensearch-go client (e.g. an `*opensearch.StructError` when the body has an error object), not `ErrOpensearchRequestFailed`, except a missing alias, which `AliasGet` and `AliasSwitch` replace with `ErrAliasNotFound`; `IndexDelete`, `AliasSet`, `AliasSwitch` and `AliasSwitchFrom` add `ErrIndexNotFound` for a missing index.

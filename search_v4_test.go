@@ -28,6 +28,8 @@ const (
 const (
 	// otherNotFoundBody is a 404 that names neither a missing document nor a missing index.
 	otherNotFoundBody = `{"error":{"root_cause":[{"type":"resource_not_found_exception","reason":"no such resource"}],"type":"resource_not_found_exception","reason":"no such resource"},"status":404}`
+	// otherNotFoundWithDocumentFieldsBody is another 404 whose error comes with the fields of a missing document.
+	otherNotFoundWithDocumentFieldsBody = `{"error":{"root_cause":[{"type":"resource_not_found_exception","reason":"no such resource"}],"type":"resource_not_found_exception","reason":"no such resource"},"status":404,"found":false,"result":"not_found"}`
 	// proxyNotFoundBody is the 404 page of a proxy in front of OpenSearch.
 	proxyNotFoundBody = `<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>`
 	// forbiddenBody is a 403 of a role without the permission for the request.
@@ -84,6 +86,7 @@ func TestUpdate(t *testing.T) {
 		{name: "a missing document - should fail", statusCode: http.StatusNotFound, body: updateMissingDocumentBody, want: ErrDocumentNotFound},
 		{name: "a missing index - should fail", statusCode: http.StatusNotFound, body: missingIndexAutoCreateOffBody, want: ErrIndexNotFound},
 		{name: "another 404 - should fail", statusCode: http.StatusNotFound, body: otherNotFoundBody, want: nil},
+		{name: "another 404 with the fields of a missing document - should fail", statusCode: http.StatusNotFound, body: otherNotFoundWithDocumentFieldsBody, want: nil},
 		{name: "an older version - should fail", statusCode: http.StatusConflict, body: versionConflictBody, want: ErrDocumentHasNewerVersion},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

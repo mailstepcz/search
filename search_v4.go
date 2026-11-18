@@ -30,6 +30,8 @@ const (
 	indexNotFoundType = "index_not_found_exception"
 	// documentMissingType is the OpenSearch error type of an update of a missing document.
 	documentMissingType = "document_missing_exception"
+	// notFoundResult is the result of a delete of a missing document.
+	notFoundResult = "not_found"
 )
 
 var (
@@ -431,8 +433,8 @@ func osError(resp *opensearch.Response) error {
 	}
 	errs := []error{ErrOpensearchRequestFailed}
 	if resp.StatusCode == http.StatusNotFound {
-		if sentinel := notFoundSentinel(b); sentinel != nil {
-			errs = append(errs, sentinel)
+		if notFoundErr := notFoundSentinel(b); notFoundErr != nil {
+			errs = append(errs, notFoundErr)
 		}
 	}
 	return serr.WrapMulti("search failed", errs, serr.Int("statusCode", resp.StatusCode), serr.String("body", string(b)))
@@ -452,10 +454,11 @@ func notFoundSentinel(body []byte) error {
 
 	// a get or delete of a missing document answers with a document body, not an error
 	var docResp struct {
-		Found  *bool  `json:"found"`
-		Result string `json:"result"`
+		Error  json.RawMessage `json:"error"`
+		Found  *bool           `json:"found"`
+		Result string          `json:"result"`
 	}
-	if json.Unmarshal(body, &docResp) == nil && ((docResp.Found != nil && !*docResp.Found) || docResp.Result == "not_found") {
+	if json.Unmarshal(body, &docResp) == nil && docResp.Error == nil && ((docResp.Found != nil && !*docResp.Found) || docResp.Result == notFoundResult) {
 		return ErrDocumentNotFound
 	}
 	return nil
