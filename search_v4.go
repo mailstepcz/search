@@ -25,8 +25,17 @@ import (
 // traversal.
 const MaxResultWindow = 10000
 
+const (
+	// indexNotFoundType is the OpenSearch error type of a request on a missing index.
+	indexNotFoundType = "index_not_found_exception"
+	// documentMissingType is the OpenSearch error type of an update of a missing document.
+	documentMissingType = "document_missing_exception"
+	// notFoundResult is the result of a delete of a missing document.
+	notFoundResult = "not_found"
+)
+
 var (
-	// ErrOpensearchRequestFailed represents an error from the Opensearch client.
+	// ErrOpensearchRequestFailed is part of every error OpenSearch answers a document or search request with; match [ErrDocumentNotFound], [ErrIndexNotFound] and [ErrDocumentHasNewerVersion] before it.
 	ErrOpensearchRequestFailed = errors.New("OpenSearch error")
 	// ErrResultWindowExceeded signifies that the requested pagination window
 	// (from + size) exceeds MaxResultWindow and cannot be served by a regular search.
@@ -35,6 +44,8 @@ var (
 	ErrOpensearchBadRequest = errors.New("OpenSearch bad request")
 	// ErrDocumentNotFound signifies that no document was found.
 	ErrDocumentNotFound = errors.New("document not found")
+	// ErrIndexNotFound signifies that the index or alias the request addresses does not exist; [AliasGet] and [AliasSwitch] report a missing alias as [ErrAliasNotFound].
+	ErrIndexNotFound = errors.New("index not found")
 	// ErrDocumentHasNewerVersion document is already present in the index and document version is lover than the provided document.
 	ErrDocumentHasNewerVersion = errors.New("document cannot be indexed, document has a newer version")
 
@@ -68,12 +79,12 @@ func NewAWSClient(ctx context.Context, url string, awsCfg aws.Config) (*opensear
 	})
 }
 
-// Index indexes a document.
+// Index indexes a document; it returns [ErrDocumentHasNewerVersion] for a version conflict and [ErrIndexNotFound] for a missing index that auto-create does not create.
 func Index[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T, params ...IndexParam) error {
 	return indexDoc(ctx, cl, index, id, doc, params...)
 }
 
-// IndexWithRefresh indexes a document with refresh = true parameter.
+// IndexWithRefresh indexes a document with refresh = true parameter; it returns [ErrDocumentHasNewerVersion] for a version conflict and [ErrIndexNotFound] for a missing index that auto-create does not create.
 // https://opensearch.org/docs/latest/api-reference/document-apis/index-document/#query-parameters
 func IndexWithRefresh[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T, params ...IndexParam) error {
 	return indexDoc(ctx, cl, index, id, doc, append(params, WithIndexParamRefresh(RefreshTypeTrue))...)
@@ -119,7 +130,7 @@ func indexDoc[T any](ctx context.Context, cl *opensearch.Client, index, id strin
 	return nil
 }
 
-// Update indexes a document.
+// Update updates a document; it returns [ErrDocumentNotFound] for a missing document, [ErrIndexNotFound] for a missing index that auto-create does not create, and [ErrDocumentHasNewerVersion] for a version conflict.
 func Update[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T, opts ...UpdateOption) error {
 	b, err := json.Marshal(doc)
 	if err != nil {
@@ -138,7 +149,7 @@ func Update[T any](ctx context.Context, cl *opensearch.Client, index, id string,
 	return updateDoc(ctx, cl, index, id, b, params)
 }
 
-// UpdateWithRefresh updates a document with refresh = true parameter.
+// UpdateWithRefresh updates a document with refresh = true parameter; it returns [ErrDocumentNotFound] for a missing document, [ErrIndexNotFound] for a missing index that auto-create does not create, and [ErrDocumentHasNewerVersion] for a version conflict.
 // https://opensearch.org/docs/latest/api-reference/document-apis/update-document/#query-parameters
 func UpdateWithRefresh[T any](ctx context.Context, cl *opensearch.Client, index, id string, doc *T) error {
 	b, err := json.Marshal(doc)
@@ -148,7 +159,7 @@ func UpdateWithRefresh[T any](ctx context.Context, cl *opensearch.Client, index,
 	return updateDoc(ctx, cl, index, id, b, &opensearchapi.UpdateParams{Refresh: string(RefreshTypeTrue)})
 }
 
-// UpdatePartial updates only specified fields on document.
+// UpdatePartial updates only specified fields on document; it returns [ErrDocumentNotFound] for a missing document, [ErrIndexNotFound] for a missing index that auto-create does not create, and [ErrDocumentHasNewerVersion] for a version conflict.
 func UpdatePartial(ctx context.Context, cl *opensearch.Client, index, id string, partialDoc map[string]any) error {
 	payload := map[string]any{
 		"doc": partialDoc,
@@ -161,7 +172,7 @@ func UpdatePartial(ctx context.Context, cl *opensearch.Client, index, id string,
 	return updateDoc(ctx, cl, index, id, b, nil)
 }
 
-// UpdatePartialWithRefresh updates only specified fields on document with refresh = true parameter.
+// UpdatePartialWithRefresh updates only specified fields on document with refresh = true parameter; it returns [ErrDocumentNotFound] for a missing document, [ErrIndexNotFound] for a missing index that auto-create does not create, and [ErrDocumentHasNewerVersion] for a version conflict.
 // https://opensearch.org/docs/latest/api-reference/document-apis/update-document/#query-parameters
 func UpdatePartialWithRefresh(ctx context.Context, cl *opensearch.Client, index, id string, partialDoc map[string]any) error {
 	payload := map[string]any{
@@ -191,9 +202,6 @@ func updateDoc(ctx context.Context, cl *opensearch.Client, index, id string, b [
 		return err
 	}
 	if resp.IsError() {
-		if resp.StatusCode == http.StatusNotFound {
-			return errors.Join(ErrDocumentNotFound, osError(resp))
-		}
 		if resp.StatusCode == http.StatusConflict {
 			return errors.Join(ErrDocumentHasNewerVersion, osError(resp))
 		}
@@ -202,12 +210,12 @@ func updateDoc(ctx context.Context, cl *opensearch.Client, index, id string, b [
 	return nil
 }
 
-// Delete deletes a document.
+// Delete deletes a document; it returns [ErrDocumentNotFound] when the document does not exist and [ErrIndexNotFound] when its index does not.
 func Delete(ctx context.Context, cl *opensearch.Client, index, id string) error {
 	return deleteDoc(ctx, cl, index, id, nil)
 }
 
-// DeleteWithRefresh deletes a document with refresh = true parameter.
+// DeleteWithRefresh deletes a document with refresh = true parameter; it returns [ErrDocumentNotFound] when the document does not exist and [ErrIndexNotFound] when its index does not.
 // https://opensearch.org/docs/latest/api-reference/document-apis/delete-document/#query-parameters
 func DeleteWithRefresh(ctx context.Context, cl *opensearch.Client, index, id string) error {
 	return deleteDoc(ctx, cl, index, id, &opensearchapi.DocumentDeleteParams{Refresh: string(RefreshTypeTrue)})
@@ -228,15 +236,12 @@ func deleteDoc(ctx context.Context, cl *opensearch.Client, index, id string, par
 		return err
 	}
 	if resp.IsError() {
-		if resp.StatusCode == http.StatusNotFound {
-			return errors.Join(ErrDocumentNotFound, osError(resp))
-		}
 		return osError(resp)
 	}
 	return nil
 }
 
-// Get gets a document.
+// Get gets a document; it returns [ErrDocumentNotFound] when the document does not exist and [ErrIndexNotFound] when its index does not.
 func Get[T any](ctx context.Context, cl *opensearch.Client, index, id string) (*T, error) {
 	req := opensearchapi.DocumentGetReq{
 		Index:      index,
@@ -262,6 +267,7 @@ func Get[T any](ctx context.Context, cl *opensearch.Client, index, id string) (*
 
 // Search searches for documents.
 // The orderBy argument is the column by which to order the results. A hyphen at its beginning signifies descending order.
+// It returns [ErrIndexNotFound] for a missing index.
 func Search[T any](ctx context.Context, cl *opensearch.Client, index string, expr Expr, orderBy string, pag *Pagination) ([]IDedDocument[T], int, error) {
 	query, err := buildQuery(expr, orderBy, pag)
 	if err != nil {
@@ -298,7 +304,7 @@ func Search[T any](ctx context.Context, cl *opensearch.Client, index string, exp
 	return docs, total, nil
 }
 
-// Scroll starts new scroll on given index.
+// Scroll starts new scroll on given index; it returns [ErrIndexNotFound] for a missing index.
 func Scroll[T any](ctx context.Context, cl *opensearch.Client, index string, expr Expr, orderBy string, size int, scrollWindow time.Duration) (*Scroller[T], error) {
 	res, err := StartScroll[T](ctx, cl, index, expr, orderBy, size, scrollWindow)
 	if err != nil {
@@ -310,6 +316,7 @@ func Scroll[T any](ctx context.Context, cl *opensearch.Client, index string, exp
 // StartScroll starts new scroll that will returns results in batches of [size].
 // Scroll is stable, and will be stable for given [ScrollWindow].
 // When scroll is completed [StopScroll] to free up resources otherwise resources.
+// It returns [ErrIndexNotFound] for a missing index.
 func StartScroll[T any](ctx context.Context, cl *opensearch.Client, index string, expr Expr, orderBy string, size int, scrollWindow time.Duration) (*ScrollResponse[T], error) {
 	query, err := buildQuery(expr, orderBy, nil)
 	if err != nil {
@@ -424,7 +431,45 @@ func osError(resp *opensearch.Response) error {
 	if err != nil {
 		return err
 	}
-	return serr.Wrap("search failed", ErrOpensearchRequestFailed, serr.Int("statusCode", resp.StatusCode), serr.String("body", string(b)))
+	errs := []error{ErrOpensearchRequestFailed}
+	if resp.StatusCode == http.StatusNotFound {
+		if notFoundErr := notFoundSentinel(b); notFoundErr != nil {
+			errs = append(errs, notFoundErr)
+		}
+	}
+	return serr.WrapMulti("search failed", errs, serr.Int("statusCode", resp.StatusCode), serr.String("body", string(b)))
+}
+
+// notFoundSentinel returns [ErrDocumentNotFound] or [ErrIndexNotFound] when a 404 response body names what is missing.
+func notFoundSentinel(body []byte) error {
+	var structErr opensearch.StructError
+	if json.Unmarshal(body, &structErr) == nil {
+		switch structErr.Err.Type {
+		case indexNotFoundType:
+			return ErrIndexNotFound
+		case documentMissingType:
+			return ErrDocumentNotFound
+		}
+	}
+
+	// a get or delete of a missing document answers with a document body, not an error
+	var docResp struct {
+		Error  json.RawMessage `json:"error"`
+		Found  *bool           `json:"found"`
+		Result string          `json:"result"`
+	}
+	if json.Unmarshal(body, &docResp) == nil && docResp.Error == nil && ((docResp.Found != nil && !*docResp.Found) || docResp.Result == notFoundResult) {
+		return ErrDocumentNotFound
+	}
+	return nil
+}
+
+// withIndexNotFound joins [ErrIndexNotFound] to an error whose [opensearch.StructError] reports a missing index.
+func withIndexNotFound(err error) error {
+	if structErr, ok := errors.AsType[*opensearch.StructError](err); ok && structErr.Err.Type == indexNotFoundType {
+		return errors.Join(ErrIndexNotFound, err)
+	}
+	return err
 }
 
 func mapDocs[T any](hits []opensearchapi.SearchHit) ([]IDedDocument[T], error) {

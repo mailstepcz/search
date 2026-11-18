@@ -153,6 +153,7 @@ func TestAliasSwitchFrom(t *testing.T) {
 
 		err := AliasSwitchFrom(ctx, cl, "products", "products-1", "products-2")
 		req.ErrorIs(err, ErrAliasMoved)
+		req.NotErrorIs(err, ErrIndexNotFound)
 	})
 
 	t.Run("a missing new index is not reported as a moved alias - should fail", func(t *testing.T) {
@@ -164,8 +165,49 @@ func TestAliasSwitchFrom(t *testing.T) {
 		})
 
 		err := AliasSwitchFrom(ctx, cl, "products", "products-1", "products-2")
-		req.ErrorContains(err, "index_not_found_exception")
+		req.ErrorIs(err, ErrIndexNotFound)
 		req.NotErrorIs(err, ErrAliasMoved)
+	})
+
+	t.Run("the new index is missing - should fail", func(t *testing.T) {
+		ctx := t.Context()
+		req := require.New(t)
+
+		// two requests go to OpenSearch: the lookup of the alias, then its switch
+		cl := newFakeAPIClient(t, func(r *http.Request) (int, string) {
+			if r.URL.Path == "/products/_alias/products" {
+				return http.StatusOK, `{"products-1": {"aliases": {"products": {}}}}`
+			}
+			return http.StatusNotFound, missingIndexBody
+		})
+
+		req.ErrorIs(AliasSwitch(ctx, cl, "products", "products-2"), ErrIndexNotFound)
+	})
+}
+
+func TestAliasSet(t *testing.T) {
+	t.Run("the index is missing - should fail", func(t *testing.T) {
+		ctx := t.Context()
+		req := require.New(t)
+
+		cl := newFakeAPIClient(t, func(*http.Request) (int, string) {
+			return http.StatusNotFound, missingIndexBody
+		})
+
+		req.ErrorIs(AliasSet(ctx, cl, "products-2", "products"), ErrIndexNotFound)
+	})
+
+	t.Run("a forbidden request is not reported as a missing index - should fail", func(t *testing.T) {
+		ctx := t.Context()
+		req := require.New(t)
+
+		cl := newFakeAPIClient(t, func(*http.Request) (int, string) {
+			return http.StatusForbidden, forbiddenBody
+		})
+
+		err := AliasSet(ctx, cl, "products-2", "products")
+		req.Error(err)
+		req.NotErrorIs(err, ErrIndexNotFound)
 	})
 }
 

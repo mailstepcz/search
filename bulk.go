@@ -19,9 +19,7 @@ var (
 	ErrBulkItemError = errors.New("bulk item error")
 )
 
-// BulkItemResult holds the classified outcome of one non-success bulk item.
-// Error wraps one of the package sentinel errors (ErrDocumentHasNewerVersion,
-// ErrDocumentNotFound, ErrBulkItemError) so callers can branch with errors.Is.
+// BulkItemResult holds the outcome of one failed bulk item; Error wraps [ErrDocumentHasNewerVersion], [ErrDocumentNotFound], [ErrIndexNotFound] or [ErrBulkItemError].
 type BulkItemResult struct {
 	ID    string
 	Error error
@@ -64,12 +62,14 @@ type BulkOperation[T any] struct {
 
 // Bulk sends a bulk request with the specified ops.
 // Returns a *BulkResult with per-item outcomes for all non-success items; error is non-nil only on request-level failure.
+// A delete of a missing document succeeds and is not in [BulkResult.Items].
 func Bulk[T any](ctx context.Context, cl *opensearch.Client, docs []BulkOperation[T]) (*BulkResult, error) {
 	return bulk(ctx, cl, docs, nil)
 }
 
 // BulkWithRefresh sends a bulk request with the specified ops and refresh = true parameter.
 // Returns a *BulkResult with per-item outcomes for all non-success items; error is non-nil only on request-level failure.
+// A delete of a missing document succeeds and is not in [BulkResult.Items].
 // https://opensearch.org/docs/latest/api-reference/document-apis/bulk/#query-parameters
 func BulkWithRefresh[T any](ctx context.Context, cl *opensearch.Client, docs []BulkOperation[T]) (*BulkResult, error) {
 	return bulk(ctx, cl, docs, &opensearchapi.BulkParams{Refresh: string(RefreshTypeTrue)})
@@ -110,19 +110,27 @@ func bulk[T any](ctx context.Context, cl *opensearch.Client, ops []BulkOperation
 func buildBulkResult(partial *opensearchapi.PartialBulkError) *BulkResult {
 	var result BulkResult
 	for _, item := range partial.FailedItems {
+		var errType, reason string
+		if item.Error != nil {
+			errType, reason = item.Error.Type, item.Error.Reason
+		}
+
 		sentinel := ErrBulkItemError
-		switch item.Status {
-		case http.StatusConflict:
+		switch {
+		case item.Status == http.StatusConflict:
 			sentinel = ErrDocumentHasNewerVersion
-		case http.StatusNotFound:
+		case item.Status == http.StatusNotFound && errType == documentMissingType:
 			sentinel = ErrDocumentNotFound
+		case item.Status == http.StatusNotFound && errType == indexNotFoundType:
+			sentinel = ErrIndexNotFound
 		}
 
 		result.Items = append(result.Items, BulkItemResult{
 			ID: item.ID,
 			Error: serr.Wrap("bulk item failed", sentinel,
 				serr.String("index", item.Index),
-				serr.String("reason", item.Error.Reason),
+				serr.String("errorType", errType),
+				serr.String("reason", reason),
 			),
 		})
 	}
