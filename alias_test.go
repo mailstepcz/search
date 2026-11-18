@@ -86,7 +86,86 @@ func TestAliasSwitch(t *testing.T) {
 		})
 
 		req.NoError(AliasSwitch(ctx, cl, "products", "products-2"))
-		req.JSONEq(`{"actions": [{"add": {"index": "products-2", "alias": "products"}}, {"remove": {"index": "products-1", "alias": "products"}}]}`, aliasesBody)
+		req.JSONEq(`{"actions": [{"add": {"index": "products-2", "alias": "products"}}, {"remove": {"index": "products-1", "alias": "products", "must_exist": true}}]}`, aliasesBody)
+	})
+
+	t.Run("a switch that lost the race to another switch - should fail", func(t *testing.T) {
+		ctx := t.Context()
+		req := require.New(t)
+
+		cl := newFakeAPIClient(t, func(r *http.Request) (int, string) {
+			if r.Method == http.MethodGet {
+				return http.StatusOK, `{"products-1": {"aliases": {"products": {}}}}`
+			}
+			return http.StatusNotFound, `{"error": {"root_cause": [{"type": "aliases_not_found_exception", "reason": "aliases [products] missing"}], "type": "aliases_not_found_exception", "reason": "aliases [products] missing"}, "status": 404}`
+		})
+
+		err := AliasSwitch(ctx, cl, "products", "products-2")
+		req.ErrorIs(err, ErrAliasMoved)
+	})
+}
+
+func TestAliasSwitchFrom(t *testing.T) {
+	t.Run("the alias moves from the given old index without looking the alias up", func(t *testing.T) {
+		ctx := t.Context()
+		req := require.New(t)
+
+		var requests []string
+		var aliasesBody string
+		cl := newFakeAPIClient(t, func(r *http.Request) (int, string) {
+			requests = append(requests, r.Method+" "+r.URL.Path)
+			if r.Method != http.MethodPost {
+				return http.StatusInternalServerError, `{}`
+			}
+			b, err := io.ReadAll(r.Body)
+			if err != nil {
+				return http.StatusInternalServerError, err.Error()
+			}
+			aliasesBody = string(b)
+			return http.StatusOK, `{"acknowledged": true}`
+		})
+
+		req.NoError(AliasSwitchFrom(ctx, cl, "products", "products-1", "products-2"))
+		req.Equal([]string{"POST /_aliases"}, requests)
+		req.JSONEq(`{"actions": [{"add": {"index": "products-2", "alias": "products"}}, {"remove": {"index": "products-1", "alias": "products", "must_exist": true}}]}`, aliasesBody)
+	})
+
+	t.Run("the alias no longer on the old index - should fail", func(t *testing.T) {
+		ctx := t.Context()
+		req := require.New(t)
+
+		cl := newFakeAPIClient(t, func(*http.Request) (int, string) {
+			return http.StatusNotFound, `{"error": {"root_cause": [{"type": "aliases_not_found_exception", "reason": "aliases [products] missing"}], "type": "aliases_not_found_exception", "reason": "aliases [products] missing"}, "status": 404}`
+		})
+
+		err := AliasSwitchFrom(ctx, cl, "products", "products-1", "products-2")
+		req.ErrorIs(err, ErrAliasMoved)
+		req.NotErrorIs(err, ErrAliasNotFound)
+	})
+
+	t.Run("the old index already deleted - should fail", func(t *testing.T) {
+		ctx := t.Context()
+		req := require.New(t)
+
+		cl := newFakeAPIClient(t, func(*http.Request) (int, string) {
+			return http.StatusNotFound, `{"error": {"root_cause": [{"type": "index_not_found_exception", "reason": "no such index [products-1]", "index": "products-1"}], "type": "index_not_found_exception", "reason": "no such index [products-1]", "index": "products-1"}, "status": 404}`
+		})
+
+		err := AliasSwitchFrom(ctx, cl, "products", "products-1", "products-2")
+		req.ErrorIs(err, ErrAliasMoved)
+	})
+
+	t.Run("a missing new index is not reported as a moved alias - should fail", func(t *testing.T) {
+		ctx := t.Context()
+		req := require.New(t)
+
+		cl := newFakeAPIClient(t, func(*http.Request) (int, string) {
+			return http.StatusNotFound, `{"error": {"root_cause": [{"type": "index_not_found_exception", "reason": "no such index [products-2]", "index": "products-2"}], "type": "index_not_found_exception", "reason": "no such index [products-2]", "index": "products-2"}, "status": 404}`
+		})
+
+		err := AliasSwitchFrom(ctx, cl, "products", "products-1", "products-2")
+		req.ErrorContains(err, "index_not_found_exception")
+		req.NotErrorIs(err, ErrAliasMoved)
 	})
 }
 

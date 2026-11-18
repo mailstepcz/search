@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
@@ -55,4 +56,17 @@ func IndexDelete(ctx context.Context, client *opensearchapi.Client, index string
 	}
 
 	return nil
+}
+
+// IndexExists reports whether the index exists.
+func IndexExists(ctx context.Context, client *opensearchapi.Client, index string) (bool, error) {
+	resp, err := client.Indices.Exists(ctx, opensearchapi.IndicesExistsReq{Indices: []string{index}})
+	if resp != nil && resp.StatusCode == http.StatusNotFound {
+		return false, nil
+	}
+	if err != nil {
+		return false, serr.Wrap("checking index existence", err, serr.String("index", index))
+	}
+
+	return true, nil
 }
